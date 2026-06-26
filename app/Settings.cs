@@ -40,6 +40,7 @@ namespace GHelper
         public Extra? extraForm;
         public Updates? updatesForm;
         public Handheld? handheldForm;
+        public LightingStudio? lightingStudioForm;
 
         static long lastRefresh;
         static long lastBatteryRefresh;
@@ -52,6 +53,7 @@ namespace GHelper
 
         bool sliderGammaIgnore = false;
         bool activateCheck = false;
+        bool auraSelectionUpdating = false;
 
         public SettingsForm()
         {
@@ -78,7 +80,7 @@ namespace GHelper
             buttonScreenAuto.Text = Properties.Strings.AutoMode;
             buttonMiniled.Text = Properties.Strings.Multizone;
 
-            buttonKeyboardColor.Text = Properties.Strings.Color;
+            buttonKeyboardColor.Text = "Lighting";
             buttonKeyboard.Text = Properties.Strings.Extra;
 
             labelPerf.Text = Properties.Strings.PerformanceMode;
@@ -1176,7 +1178,19 @@ namespace GHelper
 
         private void ButtonKeyboardColor_Click(object? sender, EventArgs e)
         {
-            SetColorPicker("aura_color");
+            if (lightingStudioForm == null || lightingStudioForm.IsDisposed)
+            {
+                lightingStudioForm = new LightingStudio(this);
+                AddOwnedForm(lightingStudioForm);
+                lightingStudioForm.FormClosed += (_, _) => lightingStudioForm = null;
+            }
+            else
+            {
+                lightingStudioForm.ReloadCurrentSettings();
+            }
+
+            lightingStudioForm.Show();
+            lightingStudioForm.Activate();
         }
 
         private void ButtonRearColor_Click(object? sender, EventArgs e)
@@ -1228,10 +1242,12 @@ namespace GHelper
             Aura.SetColor(AppConfig.Get("aura_color"));
             Aura.SetColor2(AppConfig.Get("aura_color2"));
 
+            auraSelectionUpdating = true;
             comboKeyboard.DataSource = new BindingSource(Aura.GetModes(), null);
             comboKeyboard.DisplayMember = "Value";
             comboKeyboard.ValueMember = "Key";
             comboKeyboard.SelectedValue = Aura.Mode;
+            auraSelectionUpdating = false;
             comboKeyboard.SelectedValueChanged += ComboKeyboard_SelectedValueChanged;
 
 
@@ -1257,6 +1273,26 @@ namespace GHelper
                 Aura.ApplyAura();
                 VisualiseAura();
             });
+        }
+
+        public void InitAuraSelection(AuraMode mode)
+        {
+            Aura.Mode = mode;
+            auraSelectionUpdating = true;
+            if (!Equals(comboKeyboard.SelectedValue, mode))
+                comboKeyboard.SelectedValue = mode;
+            auraSelectionUpdating = false;
+            VisualiseAura();
+        }
+
+        public AuraMode GetCurrentAuraMode()
+        {
+            return comboKeyboard.SelectedValue is AuraMode mode ? mode : Aura.Mode;
+        }
+
+        public Color GetCurrentAuraColor()
+        {
+            return Aura.Color1;
         }
 
         private void _VisualiseAura()
@@ -1363,6 +1399,9 @@ namespace GHelper
 
         private void ComboKeyboard_SelectedValueChanged(object? sender, EventArgs e)
         {
+            if (auraSelectionUpdating || comboKeyboard.SelectedValue is not AuraMode)
+                return;
+
             AppConfig.Set("aura_mode", (int)comboKeyboard.SelectedValue);
             SetAura();
         }
@@ -1526,6 +1565,7 @@ namespace GHelper
             if (matrixForm != null && matrixForm.Text != "") matrixForm.Close();
             if (handheldForm != null && handheldForm.Text != "") handheldForm.Close();
             if (mouseSettings != null && mouseSettings.Text != "") mouseSettings.Close();
+            if (lightingStudioForm != null && lightingStudioForm.Text != "") lightingStudioForm.Close();
             MemoryHelper.TrimAfter();
         }
 
@@ -1550,6 +1590,7 @@ namespace GHelper
                    (updatesForm != null && updatesForm.ContainsFocus) ||
                    (matrixForm != null && matrixForm.ContainsFocus) ||
                    (handheldForm != null && handheldForm.ContainsFocus) ||
+                   (lightingStudioForm != null && lightingStudioForm.ContainsFocus) ||
                    this.ContainsFocus ||
                    (lostFocusCheck && Math.Abs(DateTimeOffset.Now.ToUnixTimeMilliseconds() - lastLostFocus) < 300);
         }
@@ -2124,6 +2165,22 @@ namespace GHelper
                     mouseSettings = null;
                 }
 
+            }
+            else if (iph.DeviceType() == PeripheralType.Keyboard)
+            {
+                if (lightingStudioForm == null || lightingStudioForm.IsDisposed)
+                {
+                    lightingStudioForm = new LightingStudio(this);
+                    AddOwnedForm(lightingStudioForm);
+                    lightingStudioForm.FormClosed += (_, _) => lightingStudioForm = null;
+                }
+                else
+                {
+                    lightingStudioForm.ReloadCurrentSettings();
+                }
+
+                lightingStudioForm.Show();
+                lightingStudioForm.Activate();
             }
         }
 

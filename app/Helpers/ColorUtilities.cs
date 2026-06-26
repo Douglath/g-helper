@@ -140,6 +140,12 @@ namespace GHelper.Helpers
 
         public class SmoothColor
         {
+            public float Smooth
+            {
+                get { return smooth; }
+                set { smooth = Math.Clamp(value, 0f, 0.99f); }
+            }
+
             public Color RGB
             {
                 get { return Interpolate(); }

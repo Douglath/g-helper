@@ -1,5 +1,6 @@
 ﻿using GHelper.Peripherals.Mouse;
 using GHelper.Peripherals.Mouse.Models;
+using GHelper.Peripherals.Keyboard;
 using HidSharp;
 using System.Runtime.CompilerServices;
 
@@ -10,6 +11,7 @@ namespace GHelper.Peripherals
         private static readonly object _LOCK = new object();
 
         public static List<AsusMouse> ConnectedMice = new List<AsusMouse>();
+        public static List<RogClaymoreII> ConnectedKeyboards = new List<RogClaymoreII>();
 
         public static bool IsAuraSync { get; private set; } = AppConfig.IsAuraSync();
 
@@ -39,15 +41,22 @@ namespace GHelper.Peripherals
             }
         }
 
+        public static bool IsKeyboardConnected()
+        {
+            lock (_LOCK)
+            {
+                return ConnectedKeyboards.Count > 0;
+            }
+        }
+
         public static bool IsDeviceConnected(IPeripheral peripheral)
         {
             return AllPeripherals().Contains(peripheral);
         }
 
-        //Expand if keyboards or other device get supported later.
         public static bool IsAnyPeripheralConnect()
         {
-            return IsMouseConnected();
+            return IsMouseConnected() || IsKeyboardConnected();
         }
 
         public static List<IPeripheral> AllPeripherals()
@@ -56,6 +65,7 @@ namespace GHelper.Peripherals
             lock (_LOCK)
             {
                 l.AddRange(ConnectedMice);
+                l.AddRange(ConnectedKeyboards);
             }
             return l;
         }
@@ -73,9 +83,14 @@ namespace GHelper.Peripherals
             RefreshBatteryForAllDevices(false);
         }
 
-        public static void StreamMouseColor(Color color)
+        public static void StreamLightingColor(Color color)
         {
-            if (!IsAuraSync) return;
+            StreamLightingColors([color]);
+        }
+
+        public static void StreamLightingColors(IReadOnlyList<Color> colors)
+        {
+            if (!IsAuraSync || colors.Count == 0) return;
 
             List<AsusMouse> mice;
             lock (_LOCK) { mice = new List<AsusMouse>(ConnectedMice); }
@@ -84,12 +99,23 @@ namespace GHelper.Peripherals
             {
                 Task.Run(() =>
                 {
-                    try { m.WriteColorDirect(color); } catch { }
+                    try { m.WriteColorDirect(colors[0]); } catch { }
                 });
             }
+
+            StreamKeyboardColors(colors);
         }
 
-        public static void SyncMiceWithKeyboardAura()
+        private static void StreamKeyboardColors(IReadOnlyList<Color> colors)
+        {
+            List<RogClaymoreII> keyboards;
+            lock (_LOCK) { keyboards = new List<RogClaymoreII>(ConnectedKeyboards); }
+
+            foreach (RogClaymoreII keyboard in keyboards)
+                Task.Run(() => keyboard.WriteColors(colors));
+        }
+
+        public static void SyncPeripheralsWithKeyboardAura()
         {
             if (!IsAuraSync) return;
 
@@ -110,6 +136,8 @@ namespace GHelper.Peripherals
                     }
                 });
             }
+
+            StreamKeyboardColors([Color.FromArgb(AppConfig.Get("aura_color"))]);
         }
 
         public static void RefreshBatteryForAllDevices(bool force)
@@ -316,6 +344,51 @@ namespace GHelper.Peripherals
             DetectMouse(new MD200());
         }
 
+        [MethodImpl(MethodImplOptions.Synchronized)]
+        public static void DetectAllAsusPeripherals()
+        {
+            DetectAllAsusMice();
+            DetectAllAsusKeyboards();
+        }
+
+        public static void DetectAllAsusKeyboards()
+        {
+            List<RogClaymoreII> detected = RogClaymoreII.Detect().ToList();
+            bool changed = false;
+
+            lock (_LOCK)
+            {
+                foreach (RogClaymoreII existing in ConnectedKeyboards.ToList())
+                {
+                    if (existing.IsConnected()) continue;
+                    existing.Dispose();
+                    ConnectedKeyboards.Remove(existing);
+                    changed = true;
+                }
+
+                foreach (RogClaymoreII keyboard in detected)
+                {
+                    if (ConnectedKeyboards.Contains(keyboard)) continue;
+
+                    try
+                    {
+                        keyboard.Connect();
+                        ConnectedKeyboards.Add(keyboard);
+                        changed = true;
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.WriteLine($"{keyboard.GetDisplayName()}: failed to connect: {e.Message}");
+                        keyboard.Dispose();
+                    }
+                }
+            }
+
+            if (!changed) return;
+            DeviceChanged?.Invoke(null, EventArgs.Empty);
+            UpdateSettingsView();
+        }
+
         public static void DedectOmniMouse()
         {
             try
@@ -442,8 +515,8 @@ namespace GHelper.Peripherals
         private static void DeviceTimer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
         {
             timer.Stop();
-            Logger.WriteLine("HID Device Event: Checking for new ASUS Mice");
-            DetectAllAsusMice();
+            Logger.WriteLine("HID Device Event: Checking for supported ASUS peripherals");
+            DetectAllAsusPeripherals();
             if (AppConfig.IsZ13()) Program.inputDispatcher.Init();
         }
     }

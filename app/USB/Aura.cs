@@ -56,6 +56,8 @@ namespace GHelper.USB
         BATTERY = 23,
         GRADIENT = 24,
         ZONETEST = 25,
+        CUSTOMZONE = 26,
+        PERKEY = 27,
     }
 
     public enum AuraSpeed : int
@@ -198,6 +200,12 @@ namespace GHelper.USB
             {
                 modes[AuraMode.GRADIENT] = "Gradient";
                 modes[AuraMode.ZONETEST] = "Zone Test";
+                modes[AuraMode.CUSTOMZONE] = "Custom Zones";
+            }
+
+            if (perKey)
+            {
+                modes[AuraMode.PERKEY] = "Per-Key";
             }
 
             return modes;
@@ -626,7 +634,7 @@ namespace GHelper.USB
         public static void ApplyDirect(Color[] color, bool init = false)
         {
             if (color is { Length: > 0 })
-                PeripheralsProvider.StreamMouseColor(color.Length > 3 ? color[3] : color[0]);
+                PeripheralsProvider.StreamLightingColors(color.Take(4).ToArray());
 
             if (!backlight) return;
 
@@ -735,7 +743,7 @@ namespace GHelper.USB
 
         public static void ApplyDirect(Color color, bool init = false)
         {
-            PeripheralsProvider.StreamMouseColor(color);
+            PeripheralsProvider.StreamLightingColor(color);
 
             if (!backlight) return;
 
@@ -856,6 +864,18 @@ namespace GHelper.USB
                 return;
             }
 
+            if (Mode == AuraMode.CUSTOMZONE)
+            {
+                CustomRGB.ApplyCustomZones(true);
+                return;
+            }
+
+            if (Mode == AuraMode.PERKEY)
+            {
+                CustomRGB.ApplyPerKey(true);
+                return;
+            }
+
             if (Mode == AuraMode.GPUMODE)
             {
                 CustomRGB.ApplyGPUColor();
@@ -904,7 +924,7 @@ namespace GHelper.USB
 
             int _speed = (effectiveSpeed == AuraSpeed.Normal) ? 0xeb : (effectiveSpeed == AuraSpeed.Fast) ? 0xf5 : 0xe1;
 
-            PeripheralsProvider.SyncMiceWithKeyboardAura();
+            PeripheralsProvider.SyncPeripheralsWithKeyboardAura();
 
             AsusHid.Write(new List<byte[]> { AuraMessage(Mode, _Color1, _Color2, _speed), MESSAGE_SET, MESSAGE_APPLY }, "Aura", AsusHid.MAIN_AURA_PIDS);
             XGM.LightMode(Mode, _Color1, _Color2, _speed);
@@ -919,6 +939,115 @@ namespace GHelper.USB
 
         public static class CustomRGB
         {
+            public static int ZoneCount => AURA_ZONES;
+
+            public static Color[] GetCustomZoneColors()
+            {
+                string[] values = AppConfig.GetString("aura_zone_colors", "").Split(',', StringSplitOptions.RemoveEmptyEntries);
+                Color[] colors = Enumerable.Repeat(Aura.Color1, AURA_ZONES).ToArray();
+
+                for (int i = 0; i < Math.Min(values.Length, colors.Length); i++)
+                    if (int.TryParse(values[i], out int argb))
+                        colors[i] = Color.FromArgb(argb);
+
+                return colors;
+            }
+
+            public static void SetCustomZoneColors(IEnumerable<Color> colors)
+            {
+                AppConfig.Set("aura_zone_colors", string.Join(",", colors.Take(AURA_ZONES).Select(color => color.ToArgb())));
+            }
+
+            public static Dictionary<int, Color> GetPerKeyColors()
+            {
+                Dictionary<int, Color> colors = new();
+                string value = AppConfig.GetString("aura_per_key_colors", "");
+
+                foreach (string pair in value.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    string[] parts = pair.Split(':');
+                    if (parts.Length == 2 && int.TryParse(parts[0], out int led) && int.TryParse(parts[1], out int argb))
+                        colors[led] = Color.FromArgb(argb);
+                }
+
+                return colors;
+            }
+
+            public static void SetPerKeyColors(IReadOnlyDictionary<int, Color> colors)
+            {
+                AppConfig.Set("aura_per_key_colors", string.Join(",", colors.OrderBy(pair => pair.Key)
+                    .Select(pair => $"{pair.Key}:{pair.Value.ToArgb()}")));
+            }
+
+            public static void ApplyCustomZones(bool init = false)
+            {
+                Color[] colors = GetCustomZoneColors();
+                if (isStrix)
+                    ApplyDirect(colors, init);
+                else
+                    ApplyDirect(colors[0], init);
+            }
+
+            public static void ApplyPerKey(bool init = false)
+            {
+                ApplyDirectPerKey(GetPerKeyColors(), Aura.Color1, init);
+            }
+
+            private static void ApplyDirectPerKey(IReadOnlyDictionary<int, Color> colors, Color baseColor, bool init)
+            {
+                if (!backlight || !isStrix || BacklightType != AuraBacklightType.PerKey) return;
+
+                const byte keySet = 167;
+                const byte ledCount = 178;
+                const ushort mapSize = 3 * ledCount;
+                const byte ledsPerPacket = 16;
+
+                byte[] buffer = new byte[64];
+                byte[] keyBuf = new byte[mapSize];
+
+                buffer[0] = AsusHid.AURA_ID;
+                buffer[1] = 0xBC;
+                buffer[2] = 0;
+                buffer[3] = 1;
+                buffer[4] = 1;
+                buffer[5] = 1;
+                buffer[7] = 0x10;
+
+                if (init || initDirect)
+                {
+                    initDirect = false;
+                    AsusHid.SetFeatureAura(new byte[] { AsusHid.AURA_ID, 0xBC });
+                    Thread.Sleep(50);
+                }
+
+                foreach (byte led in packetMap.Distinct())
+                {
+                    int offset = led * 3;
+                    Color color = colors.TryGetValue(led, out Color selected) ? selected : baseColor;
+                    keyBuf[offset] = color.R;
+                    keyBuf[offset + 1] = color.G;
+                    keyBuf[offset + 2] = color.B;
+                }
+
+                for (int i = 0; i < keySet; i += ledsPerPacket)
+                {
+                    byte count = (byte)Math.Min(ledsPerPacket, keySet - i);
+                    buffer[6] = (byte)i;
+                    buffer[7] = count;
+                    Array.Clear(buffer, 9, buffer.Length - 9);
+                    Buffer.BlockCopy(keyBuf, 3 * i, buffer, 9, 3 * count);
+                    AsusHid.SetFeatureAura(buffer);
+                    Thread.Sleep(1);
+                }
+
+                buffer[4] = 0x04;
+                buffer[5] = 0;
+                buffer[6] = 0;
+                buffer[7] = 0;
+                Array.Clear(buffer, 9, buffer.Length - 9);
+                Buffer.BlockCopy(keyBuf, 3 * keySet, buffer, 9, 3 * (ledCount - keySet));
+                AsusHid.SetFeatureAura(buffer);
+            }
 
             static int tempFreeze = AppConfig.Get("temp_freeze", 20);
             static int tempCold = AppConfig.Get("temp_cold", 40);
@@ -1007,7 +1136,7 @@ namespace GHelper.USB
                         break;
                 }
 
-                PeripheralsProvider.StreamMouseColor(color);
+                PeripheralsProvider.StreamLightingColor(color);
                 if (isACPI) Program.acpi.TUFKeyboardRGB(AuraMode.AuraStatic, color, 0xeb, $"TUF RGB GPU {gpuMode}");
                 AsusHid.Write(new List<byte[]> { AuraMessage(AuraMode.AuraStatic, color, color, 0xeb), MESSAGE_APPLY, MESSAGE_SET });
 
@@ -1053,7 +1182,7 @@ namespace GHelper.USB
                 }
 
                 if (AppConfig.IsAlly()) color = ColorDim(color);
-                PeripheralsProvider.StreamMouseColor(color);
+                PeripheralsProvider.StreamLightingColor(color);
                 AsusHid.Write(new List<byte[]> { AuraMessage(AuraMode.AuraStatic, color, color, 0xeb), MESSAGE_APPLY, MESSAGE_SET });
                 if (isACPI) Program.acpi.TUFKeyboardRGB(AuraMode.AuraStatic, color, 0xeb);
             }
@@ -1063,38 +1192,48 @@ namespace GHelper.USB
                 if (!backlight || sessionLock) return;
 
                 var bound = Screen.GetBounds(Point.Empty);
-                bound.Y += bound.Height / 3;
-                bound.Height -= (int)Math.Round(bound.Height * (0.33f + 0.022f)); // cut 1/3 of the top screen + windows panel
+                float cropTop = Math.Clamp(AppConfig.Get("aura_ambient_crop_top", 33), 0, 70) / 100f;
+                float cropBottom = Math.Clamp(AppConfig.Get("aura_ambient_crop_bottom", 2), 0, 30) / 100f;
+                int originalHeight = bound.Height;
+                bound.Y += (int)Math.Round(originalHeight * cropTop);
+                bound.Height -= (int)Math.Round(originalHeight * (cropTop + cropBottom));
+                bound.Height = Math.Max(1, bound.Height);
 
-                Bitmap screen_low = AmbientData.CamptureScreen(bound, 512, 288);   //quality decreases greatly if it is less 512 ;
-                Bitmap screeb_pxl = AmbientData.ResizeImage(screen_low, 4, 2);     // 4x2 zone. top for keyboard and bot for lightbar;
+                Bitmap screen_low = AmbientData.CamptureScreen(bound, 128, 72);
 
                 int zones = AURA_ZONES;
+                float saturation = Math.Clamp(AppConfig.Get("aura_ambient_saturation", 20), 0, 100) / 100f;
+                float smooth = Math.Clamp(AppConfig.Get("aura_ambient_smooth", 65), 0, 95) / 100f;
+                float spatialBlur = Math.Clamp(AppConfig.Get("aura_ambient_blur", 70), 0, 100) / 100f;
+                foreach (var color in AmbientData.Colors)
+                    color.Smooth = smooth;
 
                 if (isStrix) // laptop with lightbar
                 {
-                    var mid_left = ColorUtils.GetMidColor(screeb_pxl.GetPixel(0, 1), screeb_pxl.GetPixel(1, 1));
-                    var mid_right = ColorUtils.GetMidColor(screeb_pxl.GetPixel(2, 1), screeb_pxl.GetPixel(3, 1));
+                    Color[] samples = new Color[8];
+                    for (int row = 0; row < 2; row++)
+                        for (int column = 0; column < 4; column++)
+                            samples[row * 4 + column] = AmbientData.SampleZone(screen_low, column, row, 4, 2, spatialBlur);
 
-                    AmbientData.Colors[4].RGB = ColorUtils.HSV.UpSaturation(screeb_pxl.GetPixel(1, 1)); // left bck
-                    AmbientData.Colors[5].RGB = ColorUtils.HSV.UpSaturation(mid_left);  // center left
-                    AmbientData.Colors[6].RGB = ColorUtils.HSV.UpSaturation(mid_right); // center right
-                    AmbientData.Colors[7].RGB = ColorUtils.HSV.UpSaturation(screeb_pxl.GetPixel(3, 1)); // right bck
+                    var mid_left = ColorUtils.GetMidColor(samples[4], samples[5]);
+                    var mid_right = ColorUtils.GetMidColor(samples[6], samples[7]);
+
+                    AmbientData.Colors[4].RGB = ColorUtils.HSV.UpSaturation(samples[5], saturation);
+                    AmbientData.Colors[5].RGB = ColorUtils.HSV.UpSaturation(mid_left, saturation);
+                    AmbientData.Colors[6].RGB = ColorUtils.HSV.UpSaturation(mid_right, saturation);
+                    AmbientData.Colors[7].RGB = ColorUtils.HSV.UpSaturation(samples[7], saturation);
 
                     for (int i = 0; i < 4; i++) // keyboard
-                        AmbientData.Colors[i].RGB = ColorUtils.HSV.UpSaturation(screeb_pxl.GetPixel(i, 0));
+                        AmbientData.Colors[i].RGB = ColorUtils.HSV.UpSaturation(samples[i], saturation);
                 }
                 else
                 {
                     zones = 1;
-                    AmbientData.Colors[0].RGB = ColorUtils.HSV.UpSaturation(ColorUtils.GetDominantColor(screeb_pxl), (float)0.3);
+                    Color sample = AmbientData.SampleZone(screen_low, 0, 0, 1, 1, spatialBlur);
+                    AmbientData.Colors[0].RGB = ColorUtils.HSV.UpSaturation(sample, saturation);
                 }
 
-                //screen_low.Save("big.jpg", ImageFormat.Jpeg);
-                //screeb_pxl.Save("small.jpg", ImageFormat.Jpeg);
-
                 screen_low.Dispose();
-                screeb_pxl.Dispose();
 
                 bool is_fresh = init;
 
@@ -1114,6 +1253,42 @@ namespace GHelper.USB
 
             static class AmbientData
             {
+                public static Color SampleZone(Bitmap image, int column, int row, int columns, int rows, float blur)
+                {
+                    float cellWidth = image.Width / (float)columns;
+                    float cellHeight = image.Height / (float)rows;
+                    float centerX = (column + 0.5f) * cellWidth;
+                    float centerY = (row + 0.5f) * cellHeight;
+
+                    // Keep a one-pixel sample at 0%, then expand continuously to the full cell at 100%.
+                    float halfWidth = Math.Max(0.5f, cellWidth * 0.5f * blur);
+                    float halfHeight = Math.Max(0.5f, cellHeight * 0.5f * blur);
+                    int left = Math.Clamp((int)Math.Floor(centerX - halfWidth), 0, image.Width - 1);
+                    int right = Math.Clamp((int)Math.Ceiling(centerX + halfWidth), left + 1, image.Width);
+                    int top = Math.Clamp((int)Math.Floor(centerY - halfHeight), 0, image.Height - 1);
+                    int bottom = Math.Clamp((int)Math.Ceiling(centerY + halfHeight), top + 1, image.Height);
+
+                    long red = 0;
+                    long green = 0;
+                    long blue = 0;
+                    int count = 0;
+
+                    for (int y = top; y < bottom; y++)
+                    {
+                        for (int x = left; x < right; x++)
+                        {
+                            Color pixel = image.GetPixel(x, y);
+                            red += pixel.R;
+                            green += pixel.G;
+                            blue += pixel.B;
+                            count++;
+                        }
+                    }
+
+                    return count == 0
+                        ? image.GetPixel(Math.Clamp((int)centerX, 0, image.Width - 1), Math.Clamp((int)centerY, 0, image.Height - 1))
+                        : Color.FromArgb((int)(red / count), (int)(green / count), (int)(blue / count));
+                }
 
                 public enum StretchMode
                 {
