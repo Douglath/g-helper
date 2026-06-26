@@ -958,4 +958,271 @@
     <value>防止 PCIe 设备进入低功耗空闲状态。
 如遇随机卡死或硬件无响应，建议启用。</value>
   </data>
+  <data name="AuraAmbient" xml:space="preserve">
+    <value>环境光</value>
+  </data>
+  <data name="AuraBattery" xml:space="preserve">
+    <value>电池</value>
+  </data>
+  <data name="AuraCustomZones" xml:space="preserve">
+    <value>自定义区域</value>
+  </data>
+  <data name="AuraFlash" xml:space="preserve">
+    <value>闪烁</value>
+  </data>
+  <data name="AuraGpuMode" xml:space="preserve">
+    <value>GPU 模式</value>
+  </data>
+  <data name="AuraGradient" xml:space="preserve">
+    <value>渐变</value>
+  </data>
+  <data name="AuraHeatmap" xml:space="preserve">
+    <value>热力图</value>
+  </data>
+  <data name="AuraHighlight" xml:space="preserve">
+    <value>高亮</value>
+  </data>
+  <data name="AuraLaser" xml:space="preserve">
+    <value>激光</value>
+  </data>
+  <data name="AuraPerKey" xml:space="preserve">
+    <value>单键灯光</value>
+  </data>
+  <data name="AuraRain" xml:space="preserve">
+    <value>雨滴</value>
+  </data>
+  <data name="AuraRipple" xml:space="preserve">
+    <value>涟漪</value>
+  </data>
+  <data name="AuraStar" xml:space="preserve">
+    <value>星光</value>
+  </data>
+  <data name="AuraZoneTest" xml:space="preserve">
+    <value>区域测试</value>
+  </data>
+  <data name="LightingStudioWindowTitle" xml:space="preserve">
+    <value>G-Helper 灯光工作室</value>
+  </data>
+  <data name="LightingStudioClose" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="LightingStudioApplyLighting" xml:space="preserve">
+    <value>应用灯光</value>
+  </data>
+  <data name="LightingStudioHeader" xml:space="preserve">
+    <value>灯光工作室</value>
+  </data>
+  <data name="LightingStudioHeaderSubtitle" xml:space="preserve">
+    <value>笔记本 + 支持的 ASUS / ROG 外设</value>
+  </data>
+  <data name="LightingStudioPresetsTitle" xml:space="preserve">
+    <value>预设</value>
+  </data>
+  <data name="LightingStudioPresetsHint" xml:space="preserve">
+    <value>保存完整灯光配置，并快速切换。</value>
+  </data>
+  <data name="LightingStudioNewPresetName" xml:space="preserve">
+    <value>新预设名称</value>
+  </data>
+  <data name="LightingStudioSave" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="LightingStudioLoad" xml:space="preserve">
+    <value>加载</value>
+  </data>
+  <data name="LightingStudioDelete" xml:space="preserve">
+    <value>删除</value>
+  </data>
+  <data name="LightingStudioTabEffects" xml:space="preserve">
+    <value>效果</value>
+  </data>
+  <data name="LightingStudioChooseColor" xml:space="preserve">
+    <value>选择颜色</value>
+  </data>
+  <data name="LightingStudioLightingTitle" xml:space="preserve">
+    <value>灯光</value>
+  </data>
+  <data name="LightingStudioLightingDescription" xml:space="preserve">
+    <value>选择灯效和主颜色。</value>
+  </data>
+  <data name="LightingStudioEffect" xml:space="preserve">
+    <value>效果</value>
+  </data>
+  <data name="LightingStudioEffectDescription" xml:space="preserve">
+    <value>内置或高级灯光引擎。</value>
+  </data>
+  <data name="LightingStudioBaseColor" xml:space="preserve">
+    <value>基础颜色</value>
+  </data>
+  <data name="LightingStudioBaseColorDescription" xml:space="preserve">
+    <value>静态颜色，也是未绘制按键的默认颜色。</value>
+  </data>
+  <data name="LightingStudioAmbientTitle" xml:space="preserve">
+    <value>环境光引擎</value>
+  </data>
+  <data name="LightingStudioAmbientDescription" xml:space="preserve">
+    <value>调整屏幕颜色采样方式。</value>
+  </data>
+  <data name="LightingStudioRefresh" xml:space="preserve">
+    <value>刷新</value>
+  </data>
+  <data name="LightingStudioRefreshDescription" xml:space="preserve">
+    <value>采样间隔，单位为毫秒。</value>
+  </data>
+  <data name="LightingStudioSaturation" xml:space="preserve">
+    <value>饱和度</value>
+  </data>
+  <data name="LightingStudioSaturationDescription" xml:space="preserve">
+    <value>提高采样颜色的鲜艳程度。</value>
+  </data>
+  <data name="LightingStudioSmoothing" xml:space="preserve">
+    <value>时间平滑</value>
+  </data>
+  <data name="LightingStudioSmoothingDescription" xml:space="preserve">
+    <value>数值越高，颜色变化越慢、越平稳。</value>
+  </data>
+  <data name="LightingStudioBlur" xml:space="preserve">
+    <value>空间模糊</value>
+  </data>
+  <data name="LightingStudioBlurDescription" xml:space="preserve">
+    <value>0 仅采样区域中心附近；100 平均整个区域。</value>
+  </data>
+  <data name="LightingStudioTopCrop" xml:space="preserve">
+    <value>顶部裁剪</value>
+  </data>
+  <data name="LightingStudioTopCropDescription" xml:space="preserve">
+    <value>忽略屏幕顶部的这个百分比。</value>
+  </data>
+  <data name="LightingStudioBottomCrop" xml:space="preserve">
+    <value>底部裁剪</value>
+  </data>
+  <data name="LightingStudioBottomCropDescription" xml:space="preserve">
+    <value>忽略任务栏一侧的这个百分比。</value>
+  </data>
+  <data name="LightingStudioSyncPeripherals" xml:space="preserve">
+    <value>同步支持的 ASUS / ROG 外设</value>
+  </data>
+  <data name="LightingStudioPeripheralsTitle" xml:space="preserve">
+    <value>外设</value>
+  </data>
+  <data name="LightingStudioPeripheralsDescription" xml:space="preserve">
+    <value>G-Helper 只会写入明确支持的 ASUS/ROG 硬件。</value>
+  </data>
+  <data name="LightingStudioAuraSync" xml:space="preserve">
+    <value>Aura 同步</value>
+  </data>
+  <data name="LightingStudioAuraSyncDescription" xml:space="preserve">
+    <value>将笔记本灯光同步到支持的外接设备。</value>
+  </data>
+  <data name="LightingStudioDetected" xml:space="preserve">
+    <value>已检测到</value>
+  </data>
+  <data name="LightingStudioDetectedDescription" xml:space="preserve">
+    <value>可用的外接灯光设备。</value>
+  </data>
+  <data name="LightingStudioTabZones" xml:space="preserve">
+    <value>区域</value>
+  </data>
+  <data name="LightingStudioLaptopZonesHint" xml:space="preserve">
+    <value>笔记本灯光区域 - 点击区域选择颜色</value>
+  </data>
+  <data name="LightingStudioTabPerKey" xml:space="preserve">
+    <value>单键键盘</value>
+  </data>
+  <data name="LightingStudioPerKeyHint" xml:space="preserve">
+    <value>单键键盘 - 选择笔刷颜色，然后为按键上色</value>
+  </data>
+  <data name="LightingStudioPerKeyUnavailable" xml:space="preserve">
+    <value>未检测到这台笔记本支持单键 RGB 键盘。</value>
+  </data>
+  <data name="LightingStudioPaintTools" xml:space="preserve">
+    <value>绘制工具</value>
+  </data>
+  <data name="LightingStudioBrushColor" xml:space="preserve">
+    <value>笔刷颜色</value>
+  </data>
+  <data name="LightingStudioPaintAllKeys" xml:space="preserve">
+    <value>填充所有按键</value>
+  </data>
+  <data name="LightingStudioClearOverrides" xml:space="preserve">
+    <value>清除覆盖</value>
+  </data>
+  <data name="LightingStudioClickAnyKey" xml:space="preserve">
+    <value>点击任意按键进行上色。</value>
+  </data>
+  <data name="LightingStudioPerKeyNote" xml:space="preserve">
+    <value>顶部五个按键表示已检测 LED 映射中暴露的笔记本专用控制键。</value>
+  </data>
+  <data name="LightingStudioZoneKeyboardLeft" xml:space="preserve">
+    <value>键盘左侧</value>
+  </data>
+  <data name="LightingStudioZoneKeyboardMidLeft" xml:space="preserve">
+    <value>键盘中左</value>
+  </data>
+  <data name="LightingStudioZoneKeyboardMidRight" xml:space="preserve">
+    <value>键盘中右</value>
+  </data>
+  <data name="LightingStudioZoneKeyboardRight" xml:space="preserve">
+    <value>键盘右侧</value>
+  </data>
+  <data name="LightingStudioZoneLightbarLeft" xml:space="preserve">
+    <value>灯条左侧</value>
+  </data>
+  <data name="LightingStudioZoneLightbarMidLeft" xml:space="preserve">
+    <value>灯条中左</value>
+  </data>
+  <data name="LightingStudioZoneLightbarMidRight" xml:space="preserve">
+    <value>灯条中右</value>
+  </data>
+  <data name="LightingStudioZoneLightbarRight" xml:space="preserve">
+    <value>灯条右侧</value>
+  </data>
+  <data name="LightingStudioStatusLoaded" xml:space="preserve">
+    <value>已加载当前设置</value>
+  </data>
+  <data name="LightingStudioStatusApplied" xml:space="preserve">
+    <value>灯光已应用</value>
+  </data>
+  <data name="LightingStudioKeyPainted" xml:space="preserve">
+    <value>已为 {0} 上色</value>
+  </data>
+  <data name="LightingStudioAllKeysPainted" xml:space="preserve">
+    <value>已为所有可见按键上色</value>
+  </data>
+  <data name="LightingStudioOverridesCleared" xml:space="preserve">
+    <value>已清除覆盖；当前显示基础颜色</value>
+  </data>
+  <data name="LightingStudioEnterPresetName" xml:space="preserve">
+    <value>请输入预设名称</value>
+  </data>
+  <data name="LightingStudioPresetSaved" xml:space="preserve">
+    <value>预设已保存</value>
+  </data>
+  <data name="LightingStudioPresetLoaded" xml:space="preserve">
+    <value>预设已加载</value>
+  </data>
+  <data name="LightingStudioPresetDeleted" xml:space="preserve">
+    <value>预设已删除</value>
+  </data>
+  <data name="LightingStudioSyncOn" xml:space="preserve">
+    <value>同步开启</value>
+  </data>
+  <data name="LightingStudioSyncOff" xml:space="preserve">
+    <value>同步关闭</value>
+  </data>
+  <data name="LightingStudioNoExternalDevices" xml:space="preserve">
+    <value>{0}；未检测到支持的外接灯光设备</value>
+  </data>
+  <data name="LightingStudioDeviceNotReady" xml:space="preserve">
+    <value>（未就绪）</value>
+  </data>
+  <data name="LightingStudioExternalDevices" xml:space="preserve">
+    <value>{0}；{1}，{2}：{3}</value>
+  </data>
+  <data name="LightingStudioKeyboardCount" xml:space="preserve">
+    <value>{0} 个键盘</value>
+  </data>
+  <data name="LightingStudioMouseCount" xml:space="preserve">
+    <value>{0} 个鼠标</value>
+  </data>
 </root>

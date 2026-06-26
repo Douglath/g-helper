@@ -958,4 +958,271 @@ and restarts them automatically when the GPU is enabled</value>
     <value>Prevents PCIe devices from entering low-power idle states.
 Recommended if you experience random hangs or unresponsive hardware.</value>
   </data>
+  <data name="AuraAmbient" xml:space="preserve">
+    <value>Ambient</value>
+  </data>
+  <data name="AuraBattery" xml:space="preserve">
+    <value>Battery</value>
+  </data>
+  <data name="AuraCustomZones" xml:space="preserve">
+    <value>Custom Zones</value>
+  </data>
+  <data name="AuraFlash" xml:space="preserve">
+    <value>Flash</value>
+  </data>
+  <data name="AuraGpuMode" xml:space="preserve">
+    <value>GPU Mode</value>
+  </data>
+  <data name="AuraGradient" xml:space="preserve">
+    <value>Gradient</value>
+  </data>
+  <data name="AuraHeatmap" xml:space="preserve">
+    <value>Heatmap</value>
+  </data>
+  <data name="AuraHighlight" xml:space="preserve">
+    <value>Highlight</value>
+  </data>
+  <data name="AuraLaser" xml:space="preserve">
+    <value>Laser</value>
+  </data>
+  <data name="AuraPerKey" xml:space="preserve">
+    <value>Per-Key</value>
+  </data>
+  <data name="AuraRain" xml:space="preserve">
+    <value>Rain</value>
+  </data>
+  <data name="AuraRipple" xml:space="preserve">
+    <value>Ripple</value>
+  </data>
+  <data name="AuraStar" xml:space="preserve">
+    <value>Star</value>
+  </data>
+  <data name="AuraZoneTest" xml:space="preserve">
+    <value>Zone Test</value>
+  </data>
+  <data name="LightingStudioWindowTitle" xml:space="preserve">
+    <value>G-Helper Lighting Studio</value>
+  </data>
+  <data name="LightingStudioClose" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="LightingStudioApplyLighting" xml:space="preserve">
+    <value>Apply lighting</value>
+  </data>
+  <data name="LightingStudioHeader" xml:space="preserve">
+    <value>LIGHTING STUDIO</value>
+  </data>
+  <data name="LightingStudioHeaderSubtitle" xml:space="preserve">
+    <value>Laptop + supported ASUS / ROG peripherals</value>
+  </data>
+  <data name="LightingStudioPresetsTitle" xml:space="preserve">
+    <value>PRESETS</value>
+  </data>
+  <data name="LightingStudioPresetsHint" xml:space="preserve">
+    <value>Save complete lighting setups and switch between them quickly.</value>
+  </data>
+  <data name="LightingStudioNewPresetName" xml:space="preserve">
+    <value>New preset name</value>
+  </data>
+  <data name="LightingStudioSave" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="LightingStudioLoad" xml:space="preserve">
+    <value>Load</value>
+  </data>
+  <data name="LightingStudioDelete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="LightingStudioTabEffects" xml:space="preserve">
+    <value>Effects</value>
+  </data>
+  <data name="LightingStudioChooseColor" xml:space="preserve">
+    <value>Choose color</value>
+  </data>
+  <data name="LightingStudioLightingTitle" xml:space="preserve">
+    <value>LIGHTING</value>
+  </data>
+  <data name="LightingStudioLightingDescription" xml:space="preserve">
+    <value>Choose an effect and its main color.</value>
+  </data>
+  <data name="LightingStudioEffect" xml:space="preserve">
+    <value>Effect</value>
+  </data>
+  <data name="LightingStudioEffectDescription" xml:space="preserve">
+    <value>Built-in or advanced lighting engine.</value>
+  </data>
+  <data name="LightingStudioBaseColor" xml:space="preserve">
+    <value>Base color</value>
+  </data>
+  <data name="LightingStudioBaseColorDescription" xml:space="preserve">
+    <value>Static color and fallback for unpainted keys.</value>
+  </data>
+  <data name="LightingStudioAmbientTitle" xml:space="preserve">
+    <value>AMBIENT ENGINE</value>
+  </data>
+  <data name="LightingStudioAmbientDescription" xml:space="preserve">
+    <value>Tune how screen colors are sampled.</value>
+  </data>
+  <data name="LightingStudioRefresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="LightingStudioRefreshDescription" xml:space="preserve">
+    <value>Sampling interval in milliseconds.</value>
+  </data>
+  <data name="LightingStudioSaturation" xml:space="preserve">
+    <value>Saturation</value>
+  </data>
+  <data name="LightingStudioSaturationDescription" xml:space="preserve">
+    <value>Increase sampled color intensity.</value>
+  </data>
+  <data name="LightingStudioSmoothing" xml:space="preserve">
+    <value>Temporal smoothing</value>
+  </data>
+  <data name="LightingStudioSmoothingDescription" xml:space="preserve">
+    <value>Higher values make color changes slower and calmer.</value>
+  </data>
+  <data name="LightingStudioBlur" xml:space="preserve">
+    <value>Spatial blur</value>
+  </data>
+  <data name="LightingStudioBlurDescription" xml:space="preserve">
+    <value>0 samples near each zone center; 100 averages the full zone.</value>
+  </data>
+  <data name="LightingStudioTopCrop" xml:space="preserve">
+    <value>Top crop</value>
+  </data>
+  <data name="LightingStudioTopCropDescription" xml:space="preserve">
+    <value>Ignore this percentage from the top.</value>
+  </data>
+  <data name="LightingStudioBottomCrop" xml:space="preserve">
+    <value>Bottom crop</value>
+  </data>
+  <data name="LightingStudioBottomCropDescription" xml:space="preserve">
+    <value>Ignore the taskbar-side percentage.</value>
+  </data>
+  <data name="LightingStudioSyncPeripherals" xml:space="preserve">
+    <value>Sync supported ASUS / ROG peripherals</value>
+  </data>
+  <data name="LightingStudioPeripheralsTitle" xml:space="preserve">
+    <value>PERIPHERALS</value>
+  </data>
+  <data name="LightingStudioPeripheralsDescription" xml:space="preserve">
+    <value>G-Helper only writes to explicitly supported ASUS/ROG hardware.</value>
+  </data>
+  <data name="LightingStudioAuraSync" xml:space="preserve">
+    <value>Aura sync</value>
+  </data>
+  <data name="LightingStudioAuraSyncDescription" xml:space="preserve">
+    <value>Mirror laptop lighting to supported external devices.</value>
+  </data>
+  <data name="LightingStudioDetected" xml:space="preserve">
+    <value>Detected</value>
+  </data>
+  <data name="LightingStudioDetectedDescription" xml:space="preserve">
+    <value>Available external lighting devices.</value>
+  </data>
+  <data name="LightingStudioTabZones" xml:space="preserve">
+    <value>Zones</value>
+  </data>
+  <data name="LightingStudioLaptopZonesHint" xml:space="preserve">
+    <value>LAPTOP ZONES - Click a segment to choose its color</value>
+  </data>
+  <data name="LightingStudioTabPerKey" xml:space="preserve">
+    <value>Per-key keyboard</value>
+  </data>
+  <data name="LightingStudioPerKeyHint" xml:space="preserve">
+    <value>PER-KEY KEYBOARD - Choose a brush color, then paint keys</value>
+  </data>
+  <data name="LightingStudioPerKeyUnavailable" xml:space="preserve">
+    <value>This laptop was not detected as a per-key RGB keyboard.</value>
+  </data>
+  <data name="LightingStudioPaintTools" xml:space="preserve">
+    <value>PAINT TOOLS</value>
+  </data>
+  <data name="LightingStudioBrushColor" xml:space="preserve">
+    <value>Brush color</value>
+  </data>
+  <data name="LightingStudioPaintAllKeys" xml:space="preserve">
+    <value>Paint all keys</value>
+  </data>
+  <data name="LightingStudioClearOverrides" xml:space="preserve">
+    <value>Clear overrides</value>
+  </data>
+  <data name="LightingStudioClickAnyKey" xml:space="preserve">
+    <value>Click any key to paint it.</value>
+  </data>
+  <data name="LightingStudioPerKeyNote" xml:space="preserve">
+    <value>The five keys at the top represent dedicated laptop controls when the detected LED map exposes them.</value>
+  </data>
+  <data name="LightingStudioZoneKeyboardLeft" xml:space="preserve">
+    <value>Keyboard left</value>
+  </data>
+  <data name="LightingStudioZoneKeyboardMidLeft" xml:space="preserve">
+    <value>Keyboard mid-left</value>
+  </data>
+  <data name="LightingStudioZoneKeyboardMidRight" xml:space="preserve">
+    <value>Keyboard mid-right</value>
+  </data>
+  <data name="LightingStudioZoneKeyboardRight" xml:space="preserve">
+    <value>Keyboard right</value>
+  </data>
+  <data name="LightingStudioZoneLightbarLeft" xml:space="preserve">
+    <value>Lightbar left</value>
+  </data>
+  <data name="LightingStudioZoneLightbarMidLeft" xml:space="preserve">
+    <value>Lightbar mid-left</value>
+  </data>
+  <data name="LightingStudioZoneLightbarMidRight" xml:space="preserve">
+    <value>Lightbar mid-right</value>
+  </data>
+  <data name="LightingStudioZoneLightbarRight" xml:space="preserve">
+    <value>Lightbar right</value>
+  </data>
+  <data name="LightingStudioStatusLoaded" xml:space="preserve">
+    <value>Current settings loaded</value>
+  </data>
+  <data name="LightingStudioStatusApplied" xml:space="preserve">
+    <value>Lighting applied</value>
+  </data>
+  <data name="LightingStudioKeyPainted" xml:space="preserve">
+    <value>{0} painted</value>
+  </data>
+  <data name="LightingStudioAllKeysPainted" xml:space="preserve">
+    <value>All visible keys painted</value>
+  </data>
+  <data name="LightingStudioOverridesCleared" xml:space="preserve">
+    <value>Overrides cleared; base color is shown</value>
+  </data>
+  <data name="LightingStudioEnterPresetName" xml:space="preserve">
+    <value>Enter a preset name</value>
+  </data>
+  <data name="LightingStudioPresetSaved" xml:space="preserve">
+    <value>Preset saved</value>
+  </data>
+  <data name="LightingStudioPresetLoaded" xml:space="preserve">
+    <value>Preset loaded</value>
+  </data>
+  <data name="LightingStudioPresetDeleted" xml:space="preserve">
+    <value>Preset deleted</value>
+  </data>
+  <data name="LightingStudioSyncOn" xml:space="preserve">
+    <value>Sync on</value>
+  </data>
+  <data name="LightingStudioSyncOff" xml:space="preserve">
+    <value>Sync off</value>
+  </data>
+  <data name="LightingStudioNoExternalDevices" xml:space="preserve">
+    <value>{0}; no supported external lighting devices detected</value>
+  </data>
+  <data name="LightingStudioDeviceNotReady" xml:space="preserve">
+    <value> (not ready)</value>
+  </data>
+  <data name="LightingStudioExternalDevices" xml:space="preserve">
+    <value>{0}; {1}, {2}: {3}</value>
+  </data>
+  <data name="LightingStudioKeyboardCount" xml:space="preserve">
+    <value>{0} keyboard(s)</value>
+  </data>
+  <data name="LightingStudioMouseCount" xml:space="preserve">
+    <value>{0} mouse/mice</value>
+  </data>
 </root>

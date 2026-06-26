@@ -31,13 +31,6 @@ public sealed class LightingStudio : RForm
         public override string ToString() => Text;
     }
 
-    private sealed class AmbientPeripheralSourceItem
-    {
-        public int Value { get; init; }
-        public string Text { get; init; } = "";
-        public override string ToString() => Text;
-    }
-
     private readonly SettingsForm settings;
     private readonly RComboBox modeCombo = new();
     private readonly NumericUpDown refreshInput = CreateNumber(50, 1000, 100, 50);
@@ -46,7 +39,6 @@ public sealed class LightingStudio : RForm
     private readonly NumericUpDown blurInput = CreateNumber(0, 100, 70, 5);
     private readonly NumericUpDown cropTopInput = CreateNumber(0, 70, 33, 1);
     private readonly NumericUpDown cropBottomInput = CreateNumber(0, 30, 2, 1);
-    private readonly RComboBox ambientPeripheralSource = new();
     private readonly RButton baseColorButton = new();
     private readonly FlowLayoutPanel zonePanel = new();
     private readonly Panel keyboardPanel = new();
@@ -114,7 +106,7 @@ public sealed class LightingStudio : RForm
     public LightingStudio(SettingsForm settings)
     {
         this.settings = settings;
-        Text = "G-Helper Lighting Studio";
+        Text = S("LightingStudioWindowTitle", "G-Helper Lighting Studio");
         StartPosition = FormStartPosition.CenterParent;
         MinimumSize = new Size(1080, 720);
         Size = new Size(1260, 820);
@@ -132,6 +124,9 @@ public sealed class LightingStudio : RForm
 
     private static NumericUpDown CreateNumber(int min, int max, int value, int increment)
         => new() { Minimum = min, Maximum = max, Value = value, Increment = increment, Width = 110 };
+
+    private static string S(string name, string fallback)
+        => Properties.Strings.ResourceManager.GetString(name) ?? fallback;
 
     private void BuildInterface()
     {
@@ -156,8 +151,8 @@ public sealed class LightingStudio : RForm
             FlowDirection = FlowDirection.RightToLeft,
             Padding = new Padding(5, 8, 5, 4)
         };
-        footer.Controls.Add(MakeButton("Close", (_, _) => Close(), true));
-        footer.Controls.Add(MakeButton("Apply lighting", (_, _) => ApplySettings()));
+        footer.Controls.Add(MakeButton(S("LightingStudioClose", "Close"), (_, _) => Close(), true));
+        footer.Controls.Add(MakeButton(S("LightingStudioApplyLighting", "Apply lighting"), (_, _) => ApplySettings()));
         statusLabel.AutoSize = true;
         statusLabel.Padding = new Padding(8, 10, 8, 0);
         footer.Controls.Add(statusLabel);
@@ -171,14 +166,14 @@ public sealed class LightingStudio : RForm
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30));
         header.Controls.Add(new Label
         {
-            Text = "LIGHTING STUDIO",
+            Text = S("LightingStudioHeader", "LIGHTING STUDIO"),
             Dock = DockStyle.Fill,
             Font = new Font("Segoe UI", 17, FontStyle.Bold),
             TextAlign = ContentAlignment.MiddleLeft
         }, 0, 0);
         header.Controls.Add(new Label
         {
-            Text = "Laptop + supported ASUS / ROG peripherals",
+            Text = S("LightingStudioHeaderSubtitle", "Laptop + supported ASUS / ROG peripherals"),
             Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.MiddleRight
         }, 1, 0);
@@ -190,14 +185,14 @@ public sealed class LightingStudio : RForm
         var panel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(12) };
         var title = new Label
         {
-            Text = "PRESETS",
+            Text = S("LightingStudioPresetsTitle", "PRESETS"),
             Dock = DockStyle.Top,
             Height = 34,
             Font = new Font("Segoe UI", 10, FontStyle.Bold)
         };
         var hint = new Label
         {
-            Text = "Save complete lighting setups and switch between them quickly.",
+            Text = S("LightingStudioPresetsHint", "Save complete lighting setups and switch between them quickly."),
             Dock = DockStyle.Top,
             Height = 52
         };
@@ -208,7 +203,7 @@ public sealed class LightingStudio : RForm
 
         presetName.Dock = DockStyle.Bottom;
         presetName.Height = 34;
-        presetName.PlaceholderText = "New preset name";
+        presetName.PlaceholderText = S("LightingStudioNewPresetName", "New preset name");
 
         var actions = new FlowLayoutPanel
         {
@@ -218,9 +213,9 @@ public sealed class LightingStudio : RForm
             WrapContents = true,
             Padding = new Padding(0, 6, 0, 0)
         };
-        actions.Controls.Add(MakeButton("Save", (_, _) => SavePreset()));
-        actions.Controls.Add(MakeButton("Load", (_, _) => LoadSelectedPreset(), true));
-        actions.Controls.Add(MakeButton("Delete", (_, _) => DeleteSelectedPreset(), true));
+        actions.Controls.Add(MakeButton(S("LightingStudioSave", "Save"), (_, _) => SavePreset()));
+        actions.Controls.Add(MakeButton(S("LightingStudioLoad", "Load"), (_, _) => LoadSelectedPreset(), true));
+        actions.Controls.Add(MakeButton(S("LightingStudioDelete", "Delete"), (_, _) => DeleteSelectedPreset(), true));
 
         panel.Controls.Add(presetList);
         panel.Controls.Add(actions);
@@ -242,7 +237,7 @@ public sealed class LightingStudio : RForm
 
     private TabPage BuildEffectsTab()
     {
-        var page = new TabPage("Effects") { Padding = new Padding(18), AutoScroll = true };
+        var page = new TabPage(S("LightingStudioTabEffects", "Effects")) { Padding = new Padding(18), AutoScroll = true };
         var columns = new TableLayoutPanel
         {
             Dock = DockStyle.Top,
@@ -260,37 +255,32 @@ public sealed class LightingStudio : RForm
         foreach ((AuraMode mode, string text) in Aura.GetModes())
             modeCombo.Items.Add(new AuraModeItem { Mode = mode, Text = text });
 
-        baseColorButton.Text = "Choose color";
+        baseColorButton.Text = S("LightingStudioChooseColor", "Choose color");
         baseColorButton.MinimumSize = new Size(145, 40);
         baseColorButton.Click += (_, _) => PickBaseColor();
 
-        var primary = BuildCard("LIGHTING", "Choose an effect and its main color.");
-        AddSetting((TableLayoutPanel)primary.Tag!, "Effect", "Built-in or advanced lighting engine.", modeCombo);
-        AddSetting((TableLayoutPanel)primary.Tag!, "Base color", "Static color and fallback for unpainted keys.", baseColorButton);
+        var primary = BuildCard(S("LightingStudioLightingTitle", "LIGHTING"), S("LightingStudioLightingDescription", "Choose an effect and its main color."));
+        AddSetting((TableLayoutPanel)primary.Tag!, S("LightingStudioEffect", "Effect"), S("LightingStudioEffectDescription", "Built-in or advanced lighting engine."), modeCombo);
+        AddSetting((TableLayoutPanel)primary.Tag!, S("LightingStudioBaseColor", "Base color"), S("LightingStudioBaseColorDescription", "Static color and fallback for unpainted keys."), baseColorButton);
         FinalizeCard(primary);
 
-        var ambient = BuildCard("AMBIENT ENGINE", "Tune how screen colors are sampled.");
-        ambientPeripheralSource.DropDownStyle = ComboBoxStyle.DropDownList;
-        ambientPeripheralSource.Items.Add(new AmbientPeripheralSourceItem { Value = 0, Text = "Laptop keyboard zones" });
-        ambientPeripheralSource.Items.Add(new AmbientPeripheralSourceItem { Value = 1, Text = "Lower screen zones" });
-        ambientPeripheralSource.Items.Add(new AmbientPeripheralSourceItem { Value = 2, Text = "Blend upper and lower" });
-        AddSetting((TableLayoutPanel)ambient.Tag!, "Refresh", "Sampling interval in milliseconds.", refreshInput);
-        AddSetting((TableLayoutPanel)ambient.Tag!, "Saturation", "Increase sampled color intensity.", saturationInput);
-        AddSetting((TableLayoutPanel)ambient.Tag!, "Temporal smoothing", "Higher values make color changes slower and calmer.", smoothInput);
-        AddSetting((TableLayoutPanel)ambient.Tag!, "Spatial blur", "0 samples near each zone center; 100 averages the full zone.", blurInput);
-        AddSetting((TableLayoutPanel)ambient.Tag!, "Top crop", "Ignore this percentage from the top.", cropTopInput);
-        AddSetting((TableLayoutPanel)ambient.Tag!, "Bottom crop", "Ignore the taskbar-side percentage.", cropBottomInput);
-        AddSetting((TableLayoutPanel)ambient.Tag!, "Peripheral zones", "Screen samples mirrored to external keyboards.", ambientPeripheralSource);
+        var ambient = BuildCard(S("LightingStudioAmbientTitle", "AMBIENT ENGINE"), S("LightingStudioAmbientDescription", "Tune how screen colors are sampled."));
+        AddSetting((TableLayoutPanel)ambient.Tag!, S("LightingStudioRefresh", "Refresh"), S("LightingStudioRefreshDescription", "Sampling interval in milliseconds."), refreshInput);
+        AddSetting((TableLayoutPanel)ambient.Tag!, S("LightingStudioSaturation", "Saturation"), S("LightingStudioSaturationDescription", "Increase sampled color intensity."), saturationInput);
+        AddSetting((TableLayoutPanel)ambient.Tag!, S("LightingStudioSmoothing", "Temporal smoothing"), S("LightingStudioSmoothingDescription", "Higher values make color changes slower and calmer."), smoothInput);
+        AddSetting((TableLayoutPanel)ambient.Tag!, S("LightingStudioBlur", "Spatial blur"), S("LightingStudioBlurDescription", "0 samples near each zone center; 100 averages the full zone."), blurInput);
+        AddSetting((TableLayoutPanel)ambient.Tag!, S("LightingStudioTopCrop", "Top crop"), S("LightingStudioTopCropDescription", "Ignore this percentage from the top."), cropTopInput);
+        AddSetting((TableLayoutPanel)ambient.Tag!, S("LightingStudioBottomCrop", "Bottom crop"), S("LightingStudioBottomCropDescription", "Ignore the taskbar-side percentage."), cropBottomInput);
         FinalizeCard(ambient);
 
-        syncPeripherals.Text = "Sync supported ASUS / ROG peripherals";
+        syncPeripherals.Text = S("LightingStudioSyncPeripherals", "Sync supported ASUS / ROG peripherals");
         syncPeripherals.AutoSize = true;
         peripheralStatus.AutoSize = true;
         peripheralStatus.MaximumSize = new Size(330, 0);
 
-        var devices = BuildCard("PERIPHERALS", "G-Helper only writes to explicitly supported ASUS/ROG hardware.");
-        AddSetting((TableLayoutPanel)devices.Tag!, "Aura sync", "Mirror laptop lighting to supported external devices.", syncPeripherals);
-        AddSetting((TableLayoutPanel)devices.Tag!, "Detected", "Available external lighting devices.", peripheralStatus);
+        var devices = BuildCard(S("LightingStudioPeripheralsTitle", "PERIPHERALS"), S("LightingStudioPeripheralsDescription", "G-Helper only writes to explicitly supported ASUS/ROG hardware."));
+        AddSetting((TableLayoutPanel)devices.Tag!, S("LightingStudioAuraSync", "Aura sync"), S("LightingStudioAuraSyncDescription", "Mirror laptop lighting to supported external devices."), syncPeripherals);
+        AddSetting((TableLayoutPanel)devices.Tag!, S("LightingStudioDetected", "Detected"), S("LightingStudioDetectedDescription", "Available external lighting devices."), peripheralStatus);
         FinalizeCard(devices);
 
         var left = new FlowLayoutPanel
@@ -355,10 +345,10 @@ public sealed class LightingStudio : RForm
 
     private TabPage BuildZoneTab()
     {
-        var page = new TabPage("Zones") { Padding = new Padding(22) };
+        var page = new TabPage(S("LightingStudioTabZones", "Zones")) { Padding = new Padding(22) };
         page.Controls.Add(new Label
         {
-            Text = "LAPTOP ZONES - Click a segment to choose its color",
+            Text = S("LightingStudioLaptopZonesHint", "LAPTOP ZONES - Click a segment to choose its color"),
             Dock = DockStyle.Top,
             Height = 42,
             Font = new Font("Segoe UI", 10, FontStyle.Bold)
@@ -373,7 +363,7 @@ public sealed class LightingStudio : RForm
 
     private TabPage BuildPerKeyTab()
     {
-        var page = new TabPage("Per-key keyboard") { Padding = new Padding(16) };
+        var page = new TabPage(S("LightingStudioTabPerKey", "Per-key keyboard")) { Padding = new Padding(16) };
         var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 2 };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 205));
@@ -383,8 +373,8 @@ public sealed class LightingStudio : RForm
         root.Controls.Add(new Label
         {
             Text = Aura.BacklightType == AuraBacklightType.PerKey
-                ? "PER-KEY KEYBOARD - Choose a brush color, then paint keys"
-                : "This laptop was not detected as a per-key RGB keyboard.",
+                ? S("LightingStudioPerKeyHint", "PER-KEY KEYBOARD - Choose a brush color, then paint keys")
+                : S("LightingStudioPerKeyUnavailable", "This laptop was not detected as a per-key RGB keyboard."),
             Dock = DockStyle.Fill,
             Font = new Font("Segoe UI", 10, FontStyle.Bold),
             TextAlign = ContentAlignment.MiddleLeft
@@ -406,25 +396,25 @@ public sealed class LightingStudio : RForm
         };
         tools.Controls.Add(new Label
         {
-            Text = "PAINT TOOLS",
+            Text = S("LightingStudioPaintTools", "PAINT TOOLS"),
             AutoSize = true,
             Font = new Font("Segoe UI", 10, FontStyle.Bold),
             Margin = new Padding(4, 0, 4, 10)
         });
-        keyboardBrushButton.Text = "Brush color";
+        keyboardBrushButton.Text = S("LightingStudioBrushColor", "Brush color");
         keyboardBrushButton.Size = new Size(165, 44);
         keyboardBrushButton.Click += (_, _) => PickKeyboardBrush();
         tools.Controls.Add(keyboardBrushButton);
-        tools.Controls.Add(MakeButton("Paint all keys", (_, _) => PaintAllKeys()));
-        tools.Controls.Add(MakeButton("Clear overrides", (_, _) => ClearKeyOverrides(), true));
-        keyboardSelectionLabel.Text = "Click any key to paint it.";
+        tools.Controls.Add(MakeButton(S("LightingStudioPaintAllKeys", "Paint all keys"), (_, _) => PaintAllKeys()));
+        tools.Controls.Add(MakeButton(S("LightingStudioClearOverrides", "Clear overrides"), (_, _) => ClearKeyOverrides(), true));
+        keyboardSelectionLabel.Text = S("LightingStudioClickAnyKey", "Click any key to paint it.");
         keyboardSelectionLabel.AutoSize = true;
         keyboardSelectionLabel.MaximumSize = new Size(170, 0);
         keyboardSelectionLabel.Margin = new Padding(5, 16, 5, 5);
         tools.Controls.Add(keyboardSelectionLabel);
         tools.Controls.Add(new Label
         {
-            Text = "The five keys at the top represent dedicated laptop controls when the detected LED map exposes them.",
+            Text = S("LightingStudioPerKeyNote", "The five keys at the top represent dedicated laptop controls when the detected LED map exposes them."),
             AutoSize = true,
             MaximumSize = new Size(170, 0),
             Margin = new Padding(5, 20, 5, 5)
@@ -442,7 +432,17 @@ public sealed class LightingStudio : RForm
         zonePanel.FlowDirection = FlowDirection.LeftToRight;
         zonePanel.WrapContents = true;
         zonePanel.AutoScroll = false;
-        string[] names = ["Keyboard left", "Keyboard mid-left", "Keyboard mid-right", "Keyboard right", "Lightbar left", "Lightbar mid-left", "Lightbar mid-right", "Lightbar right"];
+        string[] names =
+        [
+            S("LightingStudioZoneKeyboardLeft", "Keyboard left"),
+            S("LightingStudioZoneKeyboardMidLeft", "Keyboard mid-left"),
+            S("LightingStudioZoneKeyboardMidRight", "Keyboard mid-right"),
+            S("LightingStudioZoneKeyboardRight", "Keyboard right"),
+            S("LightingStudioZoneLightbarLeft", "Lightbar left"),
+            S("LightingStudioZoneLightbarMidLeft", "Lightbar mid-left"),
+            S("LightingStudioZoneLightbarMidRight", "Lightbar mid-right"),
+            S("LightingStudioZoneLightbarRight", "Lightbar right")
+        ];
         for (int i = 0; i < names.Length; i++)
         {
             int index = i;
@@ -570,7 +570,6 @@ public sealed class LightingStudio : RForm
         blurInput.Value = Math.Clamp(AppConfig.Get("aura_ambient_blur", 70), 0, 100);
         cropTopInput.Value = Math.Clamp(AppConfig.Get("aura_ambient_crop_top", 33), 0, 70);
         cropBottomInput.Value = Math.Clamp(AppConfig.Get("aura_ambient_crop_bottom", 2), 0, 30);
-        SelectAmbientPeripheralSource(AppConfig.Get("aura_ambient_peripheral_source", 0));
         syncPeripherals.Checked = PeripheralsProvider.IsAuraSync;
 
         baseColor = Color.FromArgb(AppConfig.Get("aura_color", settings.GetCurrentAuraColor().ToArgb()));
@@ -579,7 +578,7 @@ public sealed class LightingStudio : RForm
         keyboardBrushColor = baseColor;
         RefreshColorSurfaces();
         RefreshPeripheralStatus();
-        statusLabel.Text = "Current settings loaded";
+        statusLabel.Text = S("LightingStudioStatusLoaded", "Current settings loaded");
     }
 
     private void SelectAuraMode(AuraMode mode)
@@ -602,26 +601,6 @@ public sealed class LightingStudio : RForm
         return modeCombo.SelectedItem is AuraModeItem item ? item.Mode : AuraMode.AuraStatic;
     }
 
-    private void SelectAmbientPeripheralSource(int value)
-    {
-        foreach (object? item in ambientPeripheralSource.Items)
-        {
-            if (item is AmbientPeripheralSourceItem sourceItem && sourceItem.Value == value)
-            {
-                ambientPeripheralSource.SelectedItem = item;
-                return;
-            }
-        }
-
-        if (ambientPeripheralSource.Items.Count > 0)
-            ambientPeripheralSource.SelectedIndex = 0;
-    }
-
-    private int SelectedAmbientPeripheralSource()
-    {
-        return ambientPeripheralSource.SelectedItem is AmbientPeripheralSourceItem item ? item.Value : 0;
-    }
-
     private void ApplySettings()
     {
         AuraMode selectedMode = SelectedAuraMode();
@@ -632,7 +611,6 @@ public sealed class LightingStudio : RForm
         AppConfig.Set("aura_ambient_blur", (int)blurInput.Value);
         AppConfig.Set("aura_ambient_crop_top", (int)cropTopInput.Value);
         AppConfig.Set("aura_ambient_crop_bottom", (int)cropBottomInput.Value);
-        AppConfig.Set("aura_ambient_peripheral_source", SelectedAmbientPeripheralSource());
         AppConfig.Set("aura_color", baseColor.ToArgb());
         Aura.SetColor(baseColor.ToArgb());
         Aura.CustomRGB.SetCustomZoneColors(zoneColors);
@@ -642,7 +620,7 @@ public sealed class LightingStudio : RForm
         settings.SetAura();
         PeripheralsProvider.SyncPeripheralsWithKeyboardAura();
         settings.UpdateKeyboardLabel();
-        statusLabel.Text = "Lighting applied";
+        statusLabel.Text = S("LightingStudioStatusApplied", "Lighting applied");
     }
 
     private void PickZoneColor(int index)
@@ -674,7 +652,7 @@ public sealed class LightingStudio : RForm
     {
         perKeyColors[led] = keyboardBrushColor;
         RefreshKeyboardColors();
-        keyboardSelectionLabel.Text = $"{KeyboardKeys.First(key => key.Led == led).Label} painted";
+        keyboardSelectionLabel.Text = string.Format(S("LightingStudioKeyPainted", "{0} painted"), KeyboardKeys.First(key => key.Led == led).Label);
         SelectAuraMode(AuraMode.PERKEY);
     }
 
@@ -683,7 +661,7 @@ public sealed class LightingStudio : RForm
         foreach (KeyVisual key in KeyboardKeys)
             perKeyColors[key.Led] = keyboardBrushColor;
         RefreshKeyboardColors();
-        keyboardSelectionLabel.Text = "All visible keys painted";
+        keyboardSelectionLabel.Text = S("LightingStudioAllKeysPainted", "All visible keys painted");
         SelectAuraMode(AuraMode.PERKEY);
     }
 
@@ -691,7 +669,7 @@ public sealed class LightingStudio : RForm
     {
         perKeyColors.Clear();
         RefreshKeyboardColors();
-        keyboardSelectionLabel.Text = "Overrides cleared; base color is shown";
+        keyboardSelectionLabel.Text = S("LightingStudioOverridesCleared", "Overrides cleared; base color is shown");
     }
 
     private void RefreshKeyboardColors()
@@ -746,7 +724,7 @@ public sealed class LightingStudio : RForm
         string name = presetName.Text.Trim();
         if (name.Length == 0)
         {
-            statusLabel.Text = "Enter a preset name";
+            statusLabel.Text = S("LightingStudioEnterPresetName", "Enter a preset name");
             return;
         }
 
@@ -769,7 +747,7 @@ public sealed class LightingStudio : RForm
         AppConfig.Set("lighting_presets", JsonSerializer.Serialize(presets));
         RefreshPresetList();
         presetList.SelectedItem = name;
-        statusLabel.Text = "Preset saved";
+        statusLabel.Text = S("LightingStudioPresetSaved", "Preset saved");
     }
 
     private void LoadSelectedPreset()
@@ -802,7 +780,7 @@ public sealed class LightingStudio : RForm
         }
 
         RefreshColorSurfaces();
-        statusLabel.Text = "Preset loaded";
+        statusLabel.Text = S("LightingStudioPresetLoaded", "Preset loaded");
     }
 
     private void DeleteSelectedPreset()
@@ -813,7 +791,7 @@ public sealed class LightingStudio : RForm
         presets.RemoveAll(preset => preset.Name == name);
         AppConfig.Set("lighting_presets", JsonSerializer.Serialize(presets));
         RefreshPresetList();
-        statusLabel.Text = "Preset deleted";
+        statusLabel.Text = S("LightingStudioPresetDeleted", "Preset deleted");
     }
 
     private void ApplyTheme()
@@ -862,24 +840,26 @@ public sealed class LightingStudio : RForm
     private void RefreshPeripheralStatus()
     {
         IPeripheral[] devices = PeripheralsProvider.AllPeripherals().ToArray();
-        string syncState = PeripheralsProvider.IsAuraSync ? "Sync on" : "Sync off";
+        string syncState = PeripheralsProvider.IsAuraSync ? S("LightingStudioSyncOn", "Sync on") : S("LightingStudioSyncOff", "Sync off");
 
         if (devices.Length == 0)
         {
-            peripheralStatus.Text = $"{syncState}; no supported external lighting devices detected";
+            peripheralStatus.Text = string.Format(S("LightingStudioNoExternalDevices", "{0}; no supported external lighting devices detected"), syncState);
             return;
         }
 
         int keyboards = devices.Count(device => device.DeviceType() == PeripheralType.Keyboard);
         int mice = devices.Count(device => device.DeviceType() == PeripheralType.Mouse);
         string[] names = devices
-            .Select(device => device.GetDisplayName() + (device.IsDeviceReady ? "" : " (not ready)"))
+            .Select(device => device.GetDisplayName() + (device.IsDeviceReady ? "" : S("LightingStudioDeviceNotReady", " (not ready)")))
             .Distinct()
             .ToArray();
 
-        peripheralStatus.Text = $"{syncState}; {Plural(keyboards, "keyboard")}, {Plural(mice, "mouse")}: {string.Join(", ", names)}";
+        peripheralStatus.Text = string.Format(
+            S("LightingStudioExternalDevices", "{0}; {1}, {2}: {3}"),
+            syncState,
+            string.Format(S("LightingStudioKeyboardCount", "{0} keyboard(s)"), keyboards),
+            string.Format(S("LightingStudioMouseCount", "{0} mouse/mice"), mice),
+            string.Join(", ", names));
     }
-
-    private static string Plural(int count, string name)
-        => $"{count} {name}{(count == 1 ? "" : "s")}";
 }

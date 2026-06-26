@@ -126,6 +126,9 @@ namespace GHelper.USB
             timer.Elapsed += Timer_Elapsed;
         }
 
+        private static string S(string name, string fallback)
+            => Properties.Strings.ResourceManager.GetString(name) ?? fallback;
+
         public static Dictionary<AuraSpeed, string> GetSpeeds()
         {
             return new Dictionary<AuraSpeed, string>
@@ -170,42 +173,42 @@ namespace GHelper.USB
 
             if (perKey)
             {
-                modes[AuraMode.Star] = "Star";
-                modes[AuraMode.Rain] = "Rain";
-                modes[AuraMode.Highlight] = "Highlight";
-                modes[AuraMode.Laser] = "Laser";
-                modes[AuraMode.Ripple] = "Ripple";
+                modes[AuraMode.Star] = S("AuraStar", "Star");
+                modes[AuraMode.Rain] = S("AuraRain", "Rain");
+                modes[AuraMode.Highlight] = S("AuraHighlight", "Highlight");
+                modes[AuraMode.Laser] = S("AuraLaser", "Laser");
+                modes[AuraMode.Ripple] = S("AuraRipple", "Ripple");
             }
 
             modes[AuraMode.AuraStrobe] = Properties.Strings.AuraStrobe;
 
             if (perKey)
             {
-                modes[AuraMode.Comet] = "Comet";
-                modes[AuraMode.Flash] = "Flash";
+                modes[AuraMode.Comet] = Properties.Strings.AuraComet;
+                modes[AuraMode.Flash] = S("AuraFlash", "Flash");
             }
 
             if (isAlly)
             {
-                modes[AuraMode.BATTERY] = "Battery";
+                modes[AuraMode.BATTERY] = S("AuraBattery", "Battery");
                 return modes;
             }
 
-            modes[AuraMode.HEATMAP] = "Heatmap";
-            modes[AuraMode.GPUMODE] = "GPU Mode";
-            modes[AuraMode.AMBIENT] = "Ambient";
-            modes[AuraMode.BATTERY] = "Battery";
+            modes[AuraMode.HEATMAP] = S("AuraHeatmap", "Heatmap");
+            modes[AuraMode.GPUMODE] = S("AuraGpuMode", "GPU Mode");
+            modes[AuraMode.AMBIENT] = S("AuraAmbient", "Ambient");
+            modes[AuraMode.BATTERY] = S("AuraBattery", "Battery");
 
             if (isStrixKb)
             {
-                modes[AuraMode.GRADIENT] = "Gradient";
-                modes[AuraMode.ZONETEST] = "Zone Test";
-                modes[AuraMode.CUSTOMZONE] = "Custom Zones";
+                modes[AuraMode.GRADIENT] = S("AuraGradient", "Gradient");
+                modes[AuraMode.ZONETEST] = S("AuraZoneTest", "Zone Test");
+                modes[AuraMode.CUSTOMZONE] = S("AuraCustomZones", "Custom Zones");
             }
 
             if (perKey)
             {
-                modes[AuraMode.PERKEY] = "Per-Key";
+                modes[AuraMode.PERKEY] = S("AuraPerKey", "Per-Key");
             }
 
             return modes;
@@ -985,19 +988,6 @@ namespace GHelper.USB
             private static Color[] GetAmbientPeripheralColors(IReadOnlyList<Color> colors)
             {
                 if (colors.Count < 4) return [Aura.Color1];
-
-                int source = Math.Clamp(AppConfig.Get("aura_ambient_peripheral_source", 0), 0, 2);
-
-                if (source == 1 && colors.Count >= 8)
-                    return colors.Skip(4).Take(4).ToArray();
-
-                if (source == 2 && colors.Count >= 8)
-                {
-                    Color[] blended = new Color[4];
-                    for (int i = 0; i < blended.Length; i++)
-                        blended[i] = ColorUtils.GetMidColor(colors[i], colors[i + 4]);
-                    return blended;
-                }
 
                 return colors.Take(4).ToArray();
             }
