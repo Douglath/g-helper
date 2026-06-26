@@ -31,6 +31,13 @@ public sealed class LightingStudio : RForm
         public override string ToString() => Text;
     }
 
+    private sealed class AmbientPeripheralSourceItem
+    {
+        public int Value { get; init; }
+        public string Text { get; init; } = "";
+        public override string ToString() => Text;
+    }
+
     private readonly SettingsForm settings;
     private readonly RComboBox modeCombo = new();
     private readonly NumericUpDown refreshInput = CreateNumber(50, 1000, 100, 50);
@@ -39,6 +46,7 @@ public sealed class LightingStudio : RForm
     private readonly NumericUpDown blurInput = CreateNumber(0, 100, 70, 5);
     private readonly NumericUpDown cropTopInput = CreateNumber(0, 70, 33, 1);
     private readonly NumericUpDown cropBottomInput = CreateNumber(0, 30, 2, 1);
+    private readonly RComboBox ambientPeripheralSource = new();
     private readonly RButton baseColorButton = new();
     private readonly FlowLayoutPanel zonePanel = new();
     private readonly Panel keyboardPanel = new();
@@ -262,12 +270,17 @@ public sealed class LightingStudio : RForm
         FinalizeCard(primary);
 
         var ambient = BuildCard("AMBIENT ENGINE", "Tune how screen colors are sampled.");
+        ambientPeripheralSource.DropDownStyle = ComboBoxStyle.DropDownList;
+        ambientPeripheralSource.Items.Add(new AmbientPeripheralSourceItem { Value = 0, Text = "Laptop keyboard zones" });
+        ambientPeripheralSource.Items.Add(new AmbientPeripheralSourceItem { Value = 1, Text = "Lower screen zones" });
+        ambientPeripheralSource.Items.Add(new AmbientPeripheralSourceItem { Value = 2, Text = "Blend upper and lower" });
         AddSetting((TableLayoutPanel)ambient.Tag!, "Refresh", "Sampling interval in milliseconds.", refreshInput);
         AddSetting((TableLayoutPanel)ambient.Tag!, "Saturation", "Increase sampled color intensity.", saturationInput);
         AddSetting((TableLayoutPanel)ambient.Tag!, "Temporal smoothing", "Higher values make color changes slower and calmer.", smoothInput);
         AddSetting((TableLayoutPanel)ambient.Tag!, "Spatial blur", "0 samples near each zone center; 100 averages the full zone.", blurInput);
         AddSetting((TableLayoutPanel)ambient.Tag!, "Top crop", "Ignore this percentage from the top.", cropTopInput);
         AddSetting((TableLayoutPanel)ambient.Tag!, "Bottom crop", "Ignore the taskbar-side percentage.", cropBottomInput);
+        AddSetting((TableLayoutPanel)ambient.Tag!, "Peripheral zones", "Screen samples mirrored to external keyboards.", ambientPeripheralSource);
         FinalizeCard(ambient);
 
         syncPeripherals.Text = "Sync supported ASUS / ROG peripherals";
@@ -557,6 +570,7 @@ public sealed class LightingStudio : RForm
         blurInput.Value = Math.Clamp(AppConfig.Get("aura_ambient_blur", 70), 0, 100);
         cropTopInput.Value = Math.Clamp(AppConfig.Get("aura_ambient_crop_top", 33), 0, 70);
         cropBottomInput.Value = Math.Clamp(AppConfig.Get("aura_ambient_crop_bottom", 2), 0, 30);
+        SelectAmbientPeripheralSource(AppConfig.Get("aura_ambient_peripheral_source", 0));
         syncPeripherals.Checked = PeripheralsProvider.IsAuraSync;
 
         baseColor = Color.FromArgb(AppConfig.Get("aura_color", settings.GetCurrentAuraColor().ToArgb()));
@@ -588,6 +602,26 @@ public sealed class LightingStudio : RForm
         return modeCombo.SelectedItem is AuraModeItem item ? item.Mode : AuraMode.AuraStatic;
     }
 
+    private void SelectAmbientPeripheralSource(int value)
+    {
+        foreach (object? item in ambientPeripheralSource.Items)
+        {
+            if (item is AmbientPeripheralSourceItem sourceItem && sourceItem.Value == value)
+            {
+                ambientPeripheralSource.SelectedItem = item;
+                return;
+            }
+        }
+
+        if (ambientPeripheralSource.Items.Count > 0)
+            ambientPeripheralSource.SelectedIndex = 0;
+    }
+
+    private int SelectedAmbientPeripheralSource()
+    {
+        return ambientPeripheralSource.SelectedItem is AmbientPeripheralSourceItem item ? item.Value : 0;
+    }
+
     private void ApplySettings()
     {
         AuraMode selectedMode = SelectedAuraMode();
@@ -598,6 +632,7 @@ public sealed class LightingStudio : RForm
         AppConfig.Set("aura_ambient_blur", (int)blurInput.Value);
         AppConfig.Set("aura_ambient_crop_top", (int)cropTopInput.Value);
         AppConfig.Set("aura_ambient_crop_bottom", (int)cropBottomInput.Value);
+        AppConfig.Set("aura_ambient_peripheral_source", SelectedAmbientPeripheralSource());
         AppConfig.Set("aura_color", baseColor.ToArgb());
         Aura.SetColor(baseColor.ToArgb());
         Aura.CustomRGB.SetCustomZoneColors(zoneColors);

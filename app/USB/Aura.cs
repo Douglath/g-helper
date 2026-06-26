@@ -634,7 +634,7 @@ namespace GHelper.USB
         public static void ApplyDirect(Color[] color, bool init = false)
         {
             if (color is { Length: > 0 })
-                PeripheralsProvider.StreamLightingColors(color.Take(4).ToArray());
+                PeripheralsProvider.StreamLightingColors(CustomRGB.GetPeripheralSyncColors(color));
 
             if (!backlight) return;
 
@@ -958,12 +958,15 @@ namespace GHelper.USB
                 AppConfig.Set("aura_zone_colors", string.Join(",", colors.Take(AURA_ZONES).Select(color => color.ToArgb())));
             }
 
-            public static Color[] GetPeripheralSyncColors()
+            public static Color[] GetPeripheralSyncColors(IReadOnlyList<Color>? sourceColors = null)
             {
                 AuraMode currentMode = (AuraMode)AppConfig.Get("aura_mode", (int)Aura.Mode);
 
+                if (currentMode == AuraMode.AMBIENT)
+                    return GetAmbientPeripheralColors(sourceColors ?? AmbientData.result);
+
                 if (currentMode == AuraMode.CUSTOMZONE)
-                    return GetCustomZoneColors().Take(4).ToArray();
+                    return (sourceColors ?? GetCustomZoneColors()).Take(4).ToArray();
 
                 if (currentMode == AuraMode.GRADIENT)
                 {
@@ -973,7 +976,30 @@ namespace GHelper.USB
                     return colors;
                 }
 
+                if (sourceColors is { Count: > 0 })
+                    return sourceColors.Take(4).ToArray();
+
                 return [Aura.Color1];
+            }
+
+            private static Color[] GetAmbientPeripheralColors(IReadOnlyList<Color> colors)
+            {
+                if (colors.Count < 4) return [Aura.Color1];
+
+                int source = Math.Clamp(AppConfig.Get("aura_ambient_peripheral_source", 0), 0, 2);
+
+                if (source == 1 && colors.Count >= 8)
+                    return colors.Skip(4).Take(4).ToArray();
+
+                if (source == 2 && colors.Count >= 8)
+                {
+                    Color[] blended = new Color[4];
+                    for (int i = 0; i < blended.Length; i++)
+                        blended[i] = ColorUtils.GetMidColor(colors[i], colors[i + 4]);
+                    return blended;
+                }
+
+                return colors.Take(4).ToArray();
             }
 
             public static Dictionary<int, Color> GetPerKeyColors()
