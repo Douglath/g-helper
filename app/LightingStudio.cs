@@ -62,7 +62,7 @@ public sealed class LightingStudio : RForm
     // Visual laptop keyboard layout. LED ids follow the ASUS per-key Aura map.
     private static readonly KeyVisual[] KeyboardKeys =
     [
-        new("Vol −", 2, 0, 0, 1.2f), new("Vol +", 3, 1.3f, 0, 1.2f),
+        new("Vol -", 2, 0, 0, 1.2f), new("Vol +", 3, 1.3f, 0, 1.2f),
         new("Mic", 4, 2.6f, 0, 1.2f), new("Fan", 5, 3.9f, 0, 1.2f), new("ROG", 6, 5.2f, 0, 1.2f),
 
         new("Esc", 21, 0, 1.25f), new("F1", 23, 1.35f, 1.25f), new("F2", 24, 2.35f, 1.25f),
@@ -75,7 +75,7 @@ public sealed class LightingStudio : RForm
         new("`", 42, 0, 2.35f), new("1", 43, 1, 2.35f), new("2", 44, 2, 2.35f),
         new("3", 45, 3, 2.35f), new("4", 46, 4, 2.35f), new("5", 47, 5, 2.35f),
         new("6", 48, 6, 2.35f), new("7", 49, 7, 2.35f), new("8", 50, 8, 2.35f),
-        new("9", 51, 9, 2.35f), new("0", 52, 10, 2.35f), new("−", 53, 11, 2.35f),
+        new("9", 51, 9, 2.35f), new("0", 52, 10, 2.35f), new("-", 53, 11, 2.35f),
         new("=", 54, 12, 2.35f), new("Backspace", 55, 13, 2.35f, 2.15f),
 
         new("Tab", 63, 0, 3.35f, 1.5f), new("Q", 64, 1.5f, 3.35f), new("W", 65, 2.5f, 3.35f),
@@ -94,13 +94,13 @@ public sealed class LightingStudio : RForm
         new("C", 109, 4.25f, 5.35f), new("V", 110, 5.25f, 5.35f), new("B", 111, 6.25f, 5.35f),
         new("N", 112, 7.25f, 5.35f), new("M", 113, 8.25f, 5.35f), new(",", 114, 9.25f, 5.35f),
         new(".", 115, 10.25f, 5.35f), new("/", 116, 11.25f, 5.35f), new("Shift", 117, 12.25f, 5.35f, 2.9f),
-        new("↑", 139, 16.05f, 5.35f),
+        new("Up", 139, 16.05f, 5.35f),
 
         new("Ctrl", 126, 0, 6.35f, 1.35f), new("Fn", 127, 1.35f, 6.35f), new("Win", 128, 2.35f, 6.35f),
         new("Alt", 129, 3.35f, 6.35f, 1.25f), new("Space", 131, 4.6f, 6.35f, 5.25f),
         new("Alt", 135, 9.85f, 6.35f, 1.25f), new("Fn", 136, 11.1f, 6.35f),
-        new("Ctrl", 137, 12.1f, 6.35f, 1.45f), new("←", 159, 15.05f, 6.35f),
-        new("↓", 160, 16.05f, 6.35f), new("→", 161, 17.05f, 6.35f),
+        new("Ctrl", 137, 12.1f, 6.35f, 1.45f), new("Left", 159, 15.05f, 6.35f),
+        new("Down", 160, 16.05f, 6.35f), new("Right", 161, 17.05f, 6.35f),
     ];
 
     public LightingStudio(SettingsForm settings)
@@ -345,7 +345,7 @@ public sealed class LightingStudio : RForm
         var page = new TabPage("Zones") { Padding = new Padding(22) };
         page.Controls.Add(new Label
         {
-            Text = "LAPTOP ZONES  •  Click a segment to choose its color",
+            Text = "LAPTOP ZONES - Click a segment to choose its color",
             Dock = DockStyle.Top,
             Height = 42,
             Font = new Font("Segoe UI", 10, FontStyle.Bold)
@@ -826,10 +826,25 @@ public sealed class LightingStudio : RForm
 
     private void RefreshPeripheralStatus()
     {
-        string[] devices = PeripheralsProvider.AllPeripherals()
-            .Select(device => device.GetDisplayName())
+        IPeripheral[] devices = PeripheralsProvider.AllPeripherals().ToArray();
+        string syncState = PeripheralsProvider.IsAuraSync ? "Sync on" : "Sync off";
+
+        if (devices.Length == 0)
+        {
+            peripheralStatus.Text = $"{syncState}; no supported external lighting devices detected";
+            return;
+        }
+
+        int keyboards = devices.Count(device => device.DeviceType() == PeripheralType.Keyboard);
+        int mice = devices.Count(device => device.DeviceType() == PeripheralType.Mouse);
+        string[] names = devices
+            .Select(device => device.GetDisplayName() + (device.IsDeviceReady ? "" : " (not ready)"))
             .Distinct()
             .ToArray();
-        peripheralStatus.Text = devices.Length == 0 ? "None" : string.Join(", ", devices);
+
+        peripheralStatus.Text = $"{syncState}; {Plural(keyboards, "keyboard")}, {Plural(mice, "mouse")}: {string.Join(", ", names)}";
     }
+
+    private static string Plural(int count, string name)
+        => $"{count} {name}{(count == 1 ? "" : "s")}";
 }

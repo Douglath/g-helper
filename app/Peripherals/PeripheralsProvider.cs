@@ -1,6 +1,7 @@
 ﻿using GHelper.Peripherals.Mouse;
 using GHelper.Peripherals.Mouse.Models;
 using GHelper.Peripherals.Keyboard;
+using GHelper.USB;
 using HidSharp;
 using System.Runtime.CompilerServices;
 
@@ -137,7 +138,7 @@ namespace GHelper.Peripherals
                 });
             }
 
-            StreamKeyboardColors([Color.FromArgb(AppConfig.Get("aura_color"))]);
+            StreamKeyboardColors(Aura.CustomRGB.GetPeripheralSyncColors());
         }
 
         public static void RefreshBatteryForAllDevices(bool force)

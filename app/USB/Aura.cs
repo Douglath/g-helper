@@ -958,6 +958,24 @@ namespace GHelper.USB
                 AppConfig.Set("aura_zone_colors", string.Join(",", colors.Take(AURA_ZONES).Select(color => color.ToArgb())));
             }
 
+            public static Color[] GetPeripheralSyncColors()
+            {
+                AuraMode currentMode = (AuraMode)AppConfig.Get("aura_mode", (int)Aura.Mode);
+
+                if (currentMode == AuraMode.CUSTOMZONE)
+                    return GetCustomZoneColors().Take(4).ToArray();
+
+                if (currentMode == AuraMode.GRADIENT)
+                {
+                    Color[] colors = new Color[4];
+                    for (int zone = 0; zone < colors.Length; zone++)
+                        colors[zone] = ColorUtils.GetWeightedAverage(Aura.Color2, Aura.Color1, zone / 3f);
+                    return colors;
+                }
+
+                return [Aura.Color1];
+            }
+
             public static Dictionary<int, Color> GetPerKeyColors()
             {
                 Dictionary<int, Color> colors = new();
