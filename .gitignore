@@ -369,3 +369,11 @@ FodyWeavers.xsd
 
 tools/
 app/*.lscache
+
+# Local runtime data must not be published with the custom source branch.
+/config.json*
+/app/config.json*
+/log.txt
+/app/log.txt
+/backups/
+/publish/

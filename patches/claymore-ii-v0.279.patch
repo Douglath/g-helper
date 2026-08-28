@@ -1,0 +1,443 @@
+diff --git a/app/AsusKeyboardSettings.cs b/app/AsusKeyboardSettings.cs
+index 4576da2..479e806 100644
+--- a/app/AsusKeyboardSettings.cs
++++ b/app/AsusKeyboardSettings.cs
+@@ -52,7 +52,7 @@ namespace GHelper
+ 
+         // test-only layout previewer (keyboard_test mode): reopen the form for any layout
+         public static Action<AsusKeyboard>? RequestReopen;
+-        private bool testLayoutSelector;
++        private bool hasLayoutSelector;
+ 
+         private readonly System.Windows.Forms.Timer previewTimer = new() { Interval = 120 };
+         private float previewPhase;
+@@ -105,6 +105,7 @@ namespace GHelper
+             SetupEnergy();
+             SetupOled();
+             if (keyboard.TestMode && keyboard.HasPerKeyRGB()) BuildTestLayoutSelector();
++            else if (keyboard is ClaymoreII claymore) BuildClaymoreLayoutSelector(claymore);
+             BuildTopRow();
+             LayoutSections();
+ 
+@@ -364,7 +365,7 @@ namespace GHelper
+             int gap = comboBoxLightingMode.Height / 2;
+             int bottom = comboBoxAnimationSpeed.Bottom + gap;
+ 
+-            if (testLayoutSelector)
++            if (hasLayoutSelector)
+             {
+                 labelTestLayout.Top = comboBoxTestLayout.Top = bottom;
+                 bottom = comboBoxTestLayout.Bottom + gap;
+@@ -754,9 +755,34 @@ namespace GHelper
+             try { BeginInvoke(Close); } catch { }
+         }
+ 
++        private void BuildClaymoreLayoutSelector(ClaymoreII claymore)
++        {
++            hasLayoutSelector = true;
++            labelTestLayout.Visible = comboBoxTestLayout.Visible = true;
++            bool chinese = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "zh";
++            labelTestLayout.Text = chinese ? "小键盘位置" : "Numpad position";
++            comboBoxTestLayout.AccessibleName = labelTestLayout.Text;
++            comboBoxTestLayout.Items.AddRange(chinese ? new[] { "右侧（默认）", "左侧" } : new[] { "Right (default)", "Left" });
++            comboBoxTestLayout.SelectedIndex = claymore.NumpadOnLeft ? 1 : 0;
++            comboBoxTestLayout.SelectedIndexChanged += (_, _) =>
++            {
++                if (loadingSettings || claymore.NumpadOnLeft == (comboBoxTestLayout.SelectedIndex == 1)) return;
++                claymore.NumpadOnLeft = comboBoxTestLayout.SelectedIndex == 1;
++                Task.Run(() =>
++                {
++                    try
++                    {
++                        if (PeripheralsProvider.IsKeyboardAuraSync) keyboard.SyncFromLaptopAura();
++                        else if (keyboard.HasTransientLighting) keyboard.ApplyStoredLighting();
++                    }
++                    catch (Exception e) { Logger.WriteLine(keyboard.GetDisplayName() + ": Layout lighting: " + e.Message); }
++                });
++            };
++        }
++
+         private void BuildTestLayoutSelector()
+         {
+-            testLayoutSelector = true;
++            hasLayoutSelector = true;
+             labelTestLayout.Visible = comboBoxTestLayout.Visible = true;
+             comboBoxTestLayout.Items.Add("(device)");
+             foreach (var name in AuraKeyboardLayouts.Data.Keys.OrderBy(n => n))
+diff --git a/app/Peripherals/Keyboard/AsusKeyboard.cs b/app/Peripherals/Keyboard/AsusKeyboard.cs
+index cf8b6ce..c3b16b3 100644
+--- a/app/Peripherals/Keyboard/AsusKeyboard.cs
++++ b/app/Peripherals/Keyboard/AsusKeyboard.cs
+@@ -665,6 +665,69 @@ namespace GHelper.Peripherals.Keyboard
+ 
+         private int _streamingBusy;
+ 
++        protected virtual bool SupportsSpatialAura => false;
++        private readonly object _auraFrameLock = new();
++        private (Color[] Colors, Func<bool> IsCurrent)? _pendingAuraFrame;
++        private bool _auraFrameWorkerRunning;
++
++        // One in-flight frame and one latest pending frame, even if USB is slower than capture.
++        internal void QueueAuraColors(Color[] colors, Func<bool> isCurrent)
++        {
++            if (colors.Length == 0 || !HasRGB() || !IsDeviceReady || TestMode) return;
++            lock (_auraFrameLock)
++            {
++                _pendingAuraFrame = ((Color[])colors.Clone(), isCurrent);
++                if (_auraFrameWorkerRunning) return;
++                _auraFrameWorkerRunning = true;
++                Task.Run(ProcessAuraFrames);
++            }
++        }
++
++        private void ProcessAuraFrames()
++        {
++            while (true)
++            {
++                (Color[] Colors, Func<bool> IsCurrent) frame;
++                lock (_auraFrameLock)
++                {
++                    if (_pendingAuraFrame is not { } pending)
++                    {
++                        _auraFrameWorkerRunning = false;
++                        return;
++                    }
++                    frame = pending;
++                    _pendingAuraFrame = null;
++                }
++
++                try
++                {
++                    // Same monitor as control/battery commands; never interleave a partial frame.
++                    lock (this)
++                    {
++                        if (!frame.IsCurrent() || !IsDeviceReady || TestMode) continue;
++                        if (!SupportsSpatialAura || frame.Colors.Length == 1)
++                        {
++                            WriteColorLocked(frame.Colors[Math.Min(3, frame.Colors.Length - 1)]);
++                            continue;
++                        }
++
++                        Color[] keys = KeyboardSpatialColors.MapToKeys(KeyLayout(), frame.Colors);
++                        foreach (byte[] packet in BuildLedPackets(keys))
++                        {
++                            if (!frame.IsCurrent() || !IsDeviceReady) break;
++                            // Consume ACKs without per-frame logging or saving to device flash.
++                            Drain(USBPacketSize());
++                            Write(packet);
++                            byte[] response = new byte[USBPacketSize()];
++                            Read(response);
++                            if (response[1] == 0xFF && response[2] == 0xAA) break;
++                        }
++                    }
++                }
++                catch { } // Disconnect/timeout must not strand the worker or its latest frame.
++            }
++        }
++
+         // software aura effects (heatmap / ambient / audio ...) stream a colour per frame: no ack, no save
+         public void WriteColorDirect(Color color)
+         {
+@@ -716,12 +779,19 @@ namespace GHelper.Peripherals.Keyboard
+         }
+ 
+         public bool SetLedColors(Color[] colors)
++        {
++            foreach (byte[] packet in BuildLedPackets(colors))
++                if (WriteForResponse(packet) is null) return false;
++            return true;
++        }
++
++        private IEnumerable<byte[]> BuildLedPackets(Color[] colors)
+         {
+             byte[] map = Layout().LedIds;
+             for (int i = 0; i < colors.Length; i += 14)
+             {
+                 int count = Math.Min(14, colors.Length - i);
+-                byte[] packet = new byte[5 + count * 4];
++                byte[] packet = new byte[USBPacketSize()];
+                 packet[0] = reportId;
+                 packet[1] = 0xC0;
+                 packet[2] = 0x81;
+@@ -735,9 +805,8 @@ namespace GHelper.Peripherals.Keyboard
+                     packet[8 + j * 4] = Dim(colors[i + j].B);
+                 }
+ 
+-                if (WriteForResponse(packet) is null) return false;
++                yield return packet;
+             }
+-            return true;
+         }
+ 
+         public Color[] StoredKeyColors()
+@@ -817,11 +886,14 @@ namespace GHelper.Peripherals.Keyboard
+             return true;
+         }
+ 
++        [MethodImpl(MethodImplOptions.Synchronized)]
+         public virtual bool SyncFromLaptopAura()
+         {
+-            if (!HasRGB()) return false;
++            if (!HasRGB() || !PeripheralsProvider.IsKeyboardAuraSync) return false;
+ 
+             AuraMode mode = (AuraMode)AppConfig.Get("aura_mode");
++            if (mode == AuraMode.GRADIENT || mode == AuraMode.AMBIENT)
++                return PeripheralsProvider.SyncKeyboardSpatial(this, mode);
+             AuraSpeed speed = (AuraSpeed)AppConfig.Get("aura_speed");
+             Color color = Color.FromArgb(AppConfig.Get("aura_color"));
+             Color color2 = Color.FromArgb(AppConfig.Get("aura_color2"));
+diff --git a/app/Peripherals/Keyboard/AuraKeyboardLayouts.cs b/app/Peripherals/Keyboard/AuraKeyboardLayouts.cs
+index 0137f98..9743105 100644
+--- a/app/Peripherals/Keyboard/AuraKeyboardLayouts.cs
++++ b/app/Peripherals/Keyboard/AuraKeyboardLayouts.cs
+@@ -177,8 +177,37 @@ namespace GHelper.Peripherals.Keyboard
+             new KeyDef[] { new("Ctrl", 1.25f, 0.0f), new("Win", 1.25f, 0.0f), new("Alt", 1.25f, 0.0f), new("Space", 7.0f, 0.0f), new("Fn", 1.25f, 0.0f), new("Right Ctrl"), new("←"), new("↓"), new("→"), new("Num 0"), new("Num .") },
+         };
+ 
++        // Claymore II uses a different matrix from the original Claymore. With the
++        // numpad on the left, every main-key address moves by four columns (4 * 8).
++        // Protocol reference: SignalRGB ASUS_ROG_Claymore_II.js, d1b7c903a250bd1d318f9685b93e8fc3ac1de648.
++        private static LayoutData ClaymoreIIMainLayout(bool iso, bool numpadLeft)
++        {
++            byte[] ansiIds =
++            {
++                0x00, 0x18, 0x20, 0x28, 0x30, 0x40, 0x48, 0x50, 0x58, 0x60, 0x68, 0x70, 0x78, 0x80, 0x88, 0x90,
++                0x01, 0x11, 0x19, 0x21, 0x29, 0x31, 0x39, 0x41, 0x49, 0x51, 0x59, 0x61, 0x69, 0x79, 0x81, 0x89, 0x91,
++                0x02, 0x12, 0x1A, 0x22, 0x2A, 0x32, 0x3A, 0x42, 0x4A, 0x52, 0x5A, 0x62, 0x6A, 0x7A, 0x82, 0x8A, 0x92,
++                0x03, 0x13, 0x1B, 0x23, 0x2B, 0x33, 0x3B, 0x43, 0x4B, 0x53, 0x5B, 0x63, 0x7B,
++                0x04, 0x14, 0x1C, 0x24, 0x2C, 0x34, 0x3C, 0x44, 0x4C, 0x54, 0x5C, 0x7C, 0x8C,
++                0x05, 0x0D, 0x15, 0x35, 0x4D, 0x5D, 0x65, 0x7D, 0x85, 0x8D, 0x95,
++            };
++            var ids = ClaymoreNoNumpadRows.SelectMany(row => row)
++                .Select((key, i) => (key.Name, Id: ansiIds[i])).ToDictionary(key => key.Name, key => key.Id);
++            // Additional ISO LEDs; Enter appears in two UI rows but is one LED.
++            ids["#"] = 0x6B;
++            ids["<"] = 0x0C;
++            var rows = iso ? ToIso(ClaymoreNoNumpadRows) : ClaymoreNoNumpadRows;
++            byte[] map = rows.SelectMany(row => row)
++                .Select(key => (byte)(ids[key.Name] + (numpadLeft ? 0x20 : 0))).ToArray();
++            return new(rows, map);
++        }
++
+         public static readonly Dictionary<string, LayoutData> Data = new()
+         {
++            ["ClaymoreIIMainRight"] = ClaymoreIIMainLayout(false, false),
++            ["ClaymoreIIMainLeft"] = ClaymoreIIMainLayout(false, true),
++            ["ClaymoreIIMainRightISO"] = ClaymoreIIMainLayout(true, false),
++            ["ClaymoreIIMainLeftISO"] = ClaymoreIIMainLayout(true, true),
+             ["Azoth"] = new(AzothRows,
+             new byte[] { 0x00, 0x08, 0x10, 0x18, 0x20, 0x28, 0x30, 0x38, 0x40, 0x48, 0x50, 0x58, 0x60, 0x01, 0x09, 0x11, 0x19, 0x21, 0x29, 0x31, 0x39, 0x41, 0x49, 0x51, 0x59, 0x61, 0x69, 0x79, 0x02, 0x0A, 0x12, 0x1A, 0x22, 0x2A, 0x32, 0x3A, 0x42, 0x4A, 0x52, 0x5A, 0x62, 0x6A, 0x7A, 0x03, 0x0B, 0x13, 0x1B, 0x23, 0x2B, 0x33, 0x3B, 0x43, 0x4B, 0x53, 0x5B, 0x6B, 0x7B, 0x04, 0x14, 0x1C, 0x24, 0x2C, 0x34, 0x3C, 0x44, 0x4C, 0x54, 0x5C, 0x64, 0x74, 0x7C, 0x05, 0x0D, 0x15, 0x35, 0x55, 0x5D, 0x65, 0x6D, 0x75, 0x7D }),
+             ["AzothISO"] = new(ToIso(AzothRows),
+diff --git a/app/Peripherals/Keyboard/Models/ClaymoreII.cs b/app/Peripherals/Keyboard/Models/ClaymoreII.cs
+index 76efae0..9cbabc9 100644
+--- a/app/Peripherals/Keyboard/Models/ClaymoreII.cs
++++ b/app/Peripherals/Keyboard/Models/ClaymoreII.cs
+@@ -4,7 +4,11 @@ namespace GHelper.Peripherals.Keyboard.Models
+ {
+     public class ClaymoreII : AsusKeyboard
+     {
+-        public ClaymoreII() : base(0x0B05, 0x196B)
++        public ClaymoreII() : this(0x196B)
++        {
++        }
++
++        protected ClaymoreII(ushort productId) : base(0x0B05, productId)
+         {
+         }
+ 
+@@ -29,9 +33,23 @@ namespace GHelper.Peripherals.Keyboard.Models
+             return 4;
+         }
+ 
++        // Only the main keyboard has a spatial layout here, not the numpad/media keys.
++        protected override bool SupportsSpatialAura => true;
++
++        // Shared by the wired/wireless identities of the same keyboard. Explicit selection
++        // avoids guessing undocumented fields in the profile/status response.
++        public bool NumpadOnLeft
++        {
++            get => AppConfig.Is("claymore_ii_numpad_left");
++            set
++            {
++                lock (this) AppConfig.Set("claymore_ii_numpad_left", value ? 1 : 0);
++            }
++        }
++
+         protected override string? LayoutName()
+         {
+-            return IsIsoLayout ? "ClaymoreNoNumpadISO" : "ClaymoreNoNumpad";
++            return "ClaymoreIIMain" + (NumpadOnLeft ? "Left" : "Right") + (IsIsoLayout ? "ISO" : "");
+         }
+ 
+         protected override byte AuraSpeedByte(AuraSpeed speed)
+@@ -39,4 +57,16 @@ namespace GHelper.Peripherals.Keyboard.Models
+             return speed == AuraSpeed.Slow ? (byte)12 : speed == AuraSpeed.Fast ? (byte)4 : (byte)8;
+         }
+     }
++
++    public class ClaymoreIIWired : ClaymoreII
++    {
++        public ClaymoreIIWired() : base(0x1934)
++        {
++        }
++
++        public override string GetDisplayName()
++        {
++            return "ROG Claymore II (Wired)";
++        }
++    }
+ }
+diff --git a/app/Peripherals/PeripheralsProvider.cs b/app/Peripherals/PeripheralsProvider.cs
+index 023cf0e..e324877 100644
+--- a/app/Peripherals/PeripheralsProvider.cs
++++ b/app/Peripherals/PeripheralsProvider.cs
+@@ -25,12 +25,22 @@ namespace GHelper.Peripherals
+             IsAuraSync = enabled;
+         }
+ 
+-        public static bool IsKeyboardAuraSync { get; private set; } = AppConfig.IsKeyboardAuraSync();
++        private static int keyboardAuraSync = AppConfig.IsKeyboardAuraSync() ? 1 : 0;
++        public static bool IsKeyboardAuraSync => Volatile.Read(ref keyboardAuraSync) != 0;
++        private static int keyboardFrameGeneration;
++        private static Color[]? ambientKeyboardColors;
+ 
+         public static void SetKeyboardAuraSync(bool enabled)
+         {
+             AppConfig.Set("keyboard_aura_sync", enabled ? 1 : 0);
+-            IsKeyboardAuraSync = enabled;
++            Interlocked.Increment(ref keyboardFrameGeneration);
++            Volatile.Write(ref keyboardAuraSync, enabled ? 1 : 0);
++        }
++
++        internal static void InvalidateKeyboardFrames()
++        {
++            Interlocked.Increment(ref keyboardFrameGeneration);
++            lock (_LOCK) ambientKeyboardColors = null;
+         }
+ 
+         public static event EventHandler? DeviceChanged;
+@@ -124,8 +134,45 @@ namespace GHelper.Peripherals
+ 
+         public static void StreamKeyboardColor(Color color)
+         {
++            AuraMode mode = (AuraMode)AppConfig.Get("aura_mode");
++            StreamKeyboardColors(mode == AuraMode.GRADIENT ? GradientKeyboardColors() : new[] { color });
++        }
++
++        public static void StreamKeyboardColors(Color[] colors)
++        {
++            if (colors.Length == 0) return;
++            AuraMode mode = (AuraMode)AppConfig.Get("aura_mode");
++            // Audio and other existing software effects keep their original single-colour behavior.
++            Color[] frame = mode == AuraMode.GRADIENT || mode == AuraMode.AMBIENT
++                ? colors.Take(4).ToArray() : new[] { colors[Math.Min(3, colors.Length - 1)] };
++            if (mode == AuraMode.AMBIENT)
++                lock (_LOCK) ambientKeyboardColors = frame;
++
+             if (!IsKeyboardAuraSync) return;
+-            ForEachAsync(ConnectedKeyboards, kb => kb.WriteColorDirect(color));
++            List<AsusKeyboard> keyboards;
++            lock (_LOCK) keyboards = new(ConnectedKeyboards);
++            foreach (var keyboard in keyboards) QueueKeyboardFrame(keyboard, frame, mode);
++        }
++
++        private static Color[] GradientKeyboardColors() => KeyboardSpatialColors.Gradient(
++            Color.FromArgb(AppConfig.Get("aura_color2")), Color.FromArgb(AppConfig.Get("aura_color")));
++
++        internal static bool SyncKeyboardSpatial(AsusKeyboard keyboard, AuraMode mode)
++        {
++            Color[]? colors;
++            lock (_LOCK) colors = mode == AuraMode.GRADIENT ? GradientKeyboardColors() : ambientKeyboardColors;
++            // If capture has not produced a frame yet, the next Ambient frame will sync it.
++            if (colors is null) return false;
++            QueueKeyboardFrame(keyboard, colors, mode);
++            return true;
++        }
++
++        private static void QueueKeyboardFrame(AsusKeyboard keyboard, Color[] colors, AuraMode mode)
++        {
++            int generation = Volatile.Read(ref keyboardFrameGeneration);
++            keyboard.QueueAuraColors(colors, () => IsKeyboardAuraSync
++                && generation == Volatile.Read(ref keyboardFrameGeneration)
++                && mode == (AuraMode)AppConfig.Get("aura_mode"));
+         }
+ 
+         public static void SyncMiceWithKeyboardAura()
+@@ -468,6 +515,7 @@ namespace GHelper.Peripherals
+             DetectKeyboard(new TUFK3());
+             DetectKeyboard(new TUFK3GenII());
+             DetectKeyboard(new ClaymoreII());
++            DetectKeyboard(new ClaymoreIIWired());
+         }
+ 
+         private static int KeyboardTestPid()
+diff --git a/app/USB/Aura.cs b/app/USB/Aura.cs
+index aae4c21..a6383f5 100644
+--- a/app/USB/Aura.cs
++++ b/app/USB/Aura.cs
+@@ -647,7 +647,7 @@ namespace GHelper.USB
+             if (color is { Length: > 0 })
+             {
+                 PeripheralsProvider.StreamMouseColor(color.Length > 3 ? color[3] : color[0]);
+-                PeripheralsProvider.StreamKeyboardColor(color.Length > 3 ? color[3] : color[0]);
++                PeripheralsProvider.StreamKeyboardColors(color);
+             }
+ 
+             if (!backlight) return;
+@@ -838,6 +838,7 @@ namespace GHelper.USB
+ 
+         public static void ApplyAura()
+         {
++            PeripheralsProvider.InvalidateKeyboardFrames();
+             Mode = (AuraMode)AppConfig.Get("aura_mode");
+             Speed = (AuraSpeed)AppConfig.Get("aura_speed");
+             SetColor(AppConfig.Get("aura_color"));
+@@ -1387,4 +1388,4 @@ namespace GHelper.USB
+ 
+     }
+ 
+-}
+\ No newline at end of file
++}
+diff --git a/app/Peripherals/Keyboard/KeyboardSpatialColors.cs b/app/Peripherals/Keyboard/KeyboardSpatialColors.cs
+new file mode 100644
+index 0000000..da1f30d
+--- /dev/null
++++ b/app/Peripherals/Keyboard/KeyboardSpatialColors.cs
+@@ -0,0 +1,36 @@
++using GHelper.Helpers;
++
++namespace GHelper.Peripherals.Keyboard
++{
++    internal static class KeyboardSpatialColors
++    {
++        // Same left-to-right order as the laptop's four keyboard zones (not its lightbar).
++        internal static Color[] Gradient(Color left, Color right) =>
++            Enumerable.Range(0, 4).Select(i => ColorUtils.GetWeightedAverage(left, right, i / 3f)).ToArray();
++
++        internal static Color[] MapToKeys(List<KeyDef[]> rows, Color[] zones)
++        {
++            var centers = new List<float>();
++            foreach (var row in rows)
++            {
++                float x = 0;
++                foreach (var key in row)
++                {
++                    x += key.Gap;
++                    centers.Add(x + key.Width / 2);
++                    x += key.Width;
++                }
++            }
++
++            if (zones.Length == 0 || centers.Count == 0) return Array.Empty<Color>();
++            int zoneCount = Math.Min(4, zones.Length);
++            float left = centers.Min(), span = centers.Max() - left;
++            return centers.Select(x =>
++            {
++                float position = span > 0 ? (x - left) / span * (zoneCount - 1) : 0;
++                int a = Math.Clamp((int)position, 0, zoneCount - 1);
++                return ColorUtils.GetWeightedAverage(zones[a], zones[Math.Min(a + 1, zoneCount - 1)], position - a);
++            }).ToArray();
++        }
++    }
++}
