@@ -25,12 +25,22 @@ namespace GHelper.Peripherals
             IsAuraSync = enabled;
         }
 
-        public static bool IsKeyboardAuraSync { get; private set; } = AppConfig.IsKeyboardAuraSync();
+        private static int keyboardAuraSync = AppConfig.IsKeyboardAuraSync() ? 1 : 0;
+        public static bool IsKeyboardAuraSync => Volatile.Read(ref keyboardAuraSync) != 0;
+        private static int keyboardFrameGeneration;
+        private static Color[]? ambientKeyboardColors;
 
         public static void SetKeyboardAuraSync(bool enabled)
         {
             AppConfig.Set("keyboard_aura_sync", enabled ? 1 : 0);
-            IsKeyboardAuraSync = enabled;
+            Interlocked.Increment(ref keyboardFrameGeneration);
+            Volatile.Write(ref keyboardAuraSync, enabled ? 1 : 0);
+        }
+
+        internal static void InvalidateKeyboardFrames()
+        {
+            Interlocked.Increment(ref keyboardFrameGeneration);
+            lock (_LOCK) ambientKeyboardColors = null;
         }
 
         public static event EventHandler? DeviceChanged;
@@ -124,8 +134,45 @@ namespace GHelper.Peripherals
 
         public static void StreamKeyboardColor(Color color)
         {
+            AuraMode mode = (AuraMode)AppConfig.Get("aura_mode");
+            StreamKeyboardColors(mode == AuraMode.GRADIENT ? GradientKeyboardColors() : new[] { color });
+        }
+
+        public static void StreamKeyboardColors(Color[] colors)
+        {
+            if (colors.Length == 0) return;
+            AuraMode mode = (AuraMode)AppConfig.Get("aura_mode");
+            // Audio and other existing software effects keep their original single-colour behavior.
+            Color[] frame = mode == AuraMode.GRADIENT || mode == AuraMode.AMBIENT
+                ? colors.Take(4).ToArray() : new[] { colors[Math.Min(3, colors.Length - 1)] };
+            if (mode == AuraMode.AMBIENT)
+                lock (_LOCK) ambientKeyboardColors = frame;
+
             if (!IsKeyboardAuraSync) return;
-            ForEachAsync(ConnectedKeyboards, kb => kb.WriteColorDirect(color));
+            List<AsusKeyboard> keyboards;
+            lock (_LOCK) keyboards = new(ConnectedKeyboards);
+            foreach (var keyboard in keyboards) QueueKeyboardFrame(keyboard, frame, mode);
+        }
+
+        private static Color[] GradientKeyboardColors() => KeyboardSpatialColors.Gradient(
+            Color.FromArgb(AppConfig.Get("aura_color2")), Color.FromArgb(AppConfig.Get("aura_color")));
+
+        internal static bool SyncKeyboardSpatial(AsusKeyboard keyboard, AuraMode mode)
+        {
+            Color[]? colors;
+            lock (_LOCK) colors = mode == AuraMode.GRADIENT ? GradientKeyboardColors() : ambientKeyboardColors;
+            // If capture has not produced a frame yet, the next Ambient frame will sync it.
+            if (colors is null) return false;
+            QueueKeyboardFrame(keyboard, colors, mode);
+            return true;
+        }
+
+        private static void QueueKeyboardFrame(AsusKeyboard keyboard, Color[] colors, AuraMode mode)
+        {
+            int generation = Volatile.Read(ref keyboardFrameGeneration);
+            keyboard.QueueAuraColors(colors, () => IsKeyboardAuraSync
+                && generation == Volatile.Read(ref keyboardFrameGeneration)
+                && mode == (AuraMode)AppConfig.Get("aura_mode"));
         }
 
         public static void SyncMiceWithKeyboardAura()
@@ -468,6 +515,7 @@ namespace GHelper.Peripherals
             DetectKeyboard(new TUFK3());
             DetectKeyboard(new TUFK3GenII());
             DetectKeyboard(new ClaymoreII());
+            DetectKeyboard(new ClaymoreIIWired());
         }
 
         private static int KeyboardTestPid()

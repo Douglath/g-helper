@@ -665,6 +665,69 @@ namespace GHelper.Peripherals.Keyboard
 
         private int _streamingBusy;
 
+        protected virtual bool SupportsSpatialAura => false;
+        private readonly object _auraFrameLock = new();
+        private (Color[] Colors, Func<bool> IsCurrent)? _pendingAuraFrame;
+        private bool _auraFrameWorkerRunning;
+
+        // One in-flight frame and one latest pending frame, even if USB is slower than capture.
+        internal void QueueAuraColors(Color[] colors, Func<bool> isCurrent)
+        {
+            if (colors.Length == 0 || !HasRGB() || !IsDeviceReady || TestMode) return;
+            lock (_auraFrameLock)
+            {
+                _pendingAuraFrame = ((Color[])colors.Clone(), isCurrent);
+                if (_auraFrameWorkerRunning) return;
+                _auraFrameWorkerRunning = true;
+                Task.Run(ProcessAuraFrames);
+            }
+        }
+
+        private void ProcessAuraFrames()
+        {
+            while (true)
+            {
+                (Color[] Colors, Func<bool> IsCurrent) frame;
+                lock (_auraFrameLock)
+                {
+                    if (_pendingAuraFrame is not { } pending)
+                    {
+                        _auraFrameWorkerRunning = false;
+                        return;
+                    }
+                    frame = pending;
+                    _pendingAuraFrame = null;
+                }
+
+                try
+                {
+                    // Same monitor as control/battery commands; never interleave a partial frame.
+                    lock (this)
+                    {
+                        if (!frame.IsCurrent() || !IsDeviceReady || TestMode) continue;
+                        if (!SupportsSpatialAura || frame.Colors.Length == 1)
+                        {
+                            WriteColorLocked(frame.Colors[Math.Min(3, frame.Colors.Length - 1)]);
+                            continue;
+                        }
+
+                        Color[] keys = KeyboardSpatialColors.MapToKeys(KeyLayout(), frame.Colors);
+                        foreach (byte[] packet in BuildLedPackets(keys))
+                        {
+                            if (!frame.IsCurrent() || !IsDeviceReady) break;
+                            // Consume ACKs without per-frame logging or saving to device flash.
+                            Drain(USBPacketSize());
+                            Write(packet);
+                            byte[] response = new byte[USBPacketSize()];
+                            Read(response);
+                            if (response[1] == 0xFF && response[2] == 0xAA) break;
+                        }
+                    }
+                }
+                catch { } // Disconnect/timeout must not strand the worker or its latest frame.
+            }
+        }
+
         // software aura effects (heatmap / ambient / audio ...) stream a colour per frame: no ack, no save
         public void WriteColorDirect(Color color)
         {
@@ -717,11 +780,18 @@ namespace GHelper.Peripherals.Keyboard
 
         public bool SetLedColors(Color[] colors)
         {
+            foreach (byte[] packet in BuildLedPackets(colors))
+                if (WriteForResponse(packet) is null) return false;
+            return true;
+        }
+
+        private IEnumerable<byte[]> BuildLedPackets(Color[] colors)
+        {
             byte[] map = Layout().LedIds;
             for (int i = 0; i < colors.Length; i += 14)
             {
                 int count = Math.Min(14, colors.Length - i);
-                byte[] packet = new byte[5 + count * 4];
+                byte[] packet = new byte[USBPacketSize()];
                 packet[0] = reportId;
                 packet[1] = 0xC0;
                 packet[2] = 0x81;
@@ -735,9 +805,8 @@ namespace GHelper.Peripherals.Keyboard
                     packet[8 + j * 4] = Dim(colors[i + j].B);
                 }
 
-                if (WriteForResponse(packet) is null) return false;
+                yield return packet;
             }
-            return true;
         }
 
         public Color[] StoredKeyColors()
@@ -817,11 +886,14 @@ namespace GHelper.Peripherals.Keyboard
             return true;
         }
 
+        [MethodImpl(MethodImplOptions.Synchronized)]
         public virtual bool SyncFromLaptopAura()
         {
-            if (!HasRGB()) return false;
+            if (!HasRGB() || !PeripheralsProvider.IsKeyboardAuraSync) return false;
 
             AuraMode mode = (AuraMode)AppConfig.Get("aura_mode");
+            if (mode == AuraMode.GRADIENT || mode == AuraMode.AMBIENT)
+                return PeripheralsProvider.SyncKeyboardSpatial(this, mode);
             AuraSpeed speed = (AuraSpeed)AppConfig.Get("aura_speed");
             Color color = Color.FromArgb(AppConfig.Get("aura_color"));
             Color color2 = Color.FromArgb(AppConfig.Get("aura_color2"));

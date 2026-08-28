@@ -52,7 +52,7 @@ namespace GHelper
 
         // test-only layout previewer (keyboard_test mode): reopen the form for any layout
         public static Action<AsusKeyboard>? RequestReopen;
-        private bool testLayoutSelector;
+        private bool hasLayoutSelector;
 
         private readonly System.Windows.Forms.Timer previewTimer = new() { Interval = 120 };
         private float previewPhase;
@@ -105,6 +105,7 @@ namespace GHelper
             SetupEnergy();
             SetupOled();
             if (keyboard.TestMode && keyboard.HasPerKeyRGB()) BuildTestLayoutSelector();
+            else if (keyboard is ClaymoreII claymore) BuildClaymoreLayoutSelector(claymore);
             BuildTopRow();
             LayoutSections();
 
@@ -364,7 +365,7 @@ namespace GHelper
             int gap = comboBoxLightingMode.Height / 2;
             int bottom = comboBoxAnimationSpeed.Bottom + gap;
 
-            if (testLayoutSelector)
+            if (hasLayoutSelector)
             {
                 labelTestLayout.Top = comboBoxTestLayout.Top = bottom;
                 bottom = comboBoxTestLayout.Bottom + gap;
@@ -754,9 +755,34 @@ namespace GHelper
             try { BeginInvoke(Close); } catch { }
         }
 
+        private void BuildClaymoreLayoutSelector(ClaymoreII claymore)
+        {
+            hasLayoutSelector = true;
+            labelTestLayout.Visible = comboBoxTestLayout.Visible = true;
+            bool chinese = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "zh";
+            labelTestLayout.Text = chinese ? "小键盘位置" : "Numpad position";
+            comboBoxTestLayout.AccessibleName = labelTestLayout.Text;
+            comboBoxTestLayout.Items.AddRange(chinese ? new[] { "右侧（默认）", "左侧" } : new[] { "Right (default)", "Left" });
+            comboBoxTestLayout.SelectedIndex = claymore.NumpadOnLeft ? 1 : 0;
+            comboBoxTestLayout.SelectedIndexChanged += (_, _) =>
+            {
+                if (loadingSettings || claymore.NumpadOnLeft == (comboBoxTestLayout.SelectedIndex == 1)) return;
+                claymore.NumpadOnLeft = comboBoxTestLayout.SelectedIndex == 1;
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        if (PeripheralsProvider.IsKeyboardAuraSync) keyboard.SyncFromLaptopAura();
+                        else if (keyboard.HasTransientLighting) keyboard.ApplyStoredLighting();
+                    }
+                    catch (Exception e) { Logger.WriteLine(keyboard.GetDisplayName() + ": Layout lighting: " + e.Message); }
+                });
+            };
+        }
+
         private void BuildTestLayoutSelector()
         {
-            testLayoutSelector = true;
+            hasLayoutSelector = true;
             labelTestLayout.Visible = comboBoxTestLayout.Visible = true;
             comboBoxTestLayout.Items.Add("(device)");
             foreach (var name in AuraKeyboardLayouts.Data.Keys.OrderBy(n => n))

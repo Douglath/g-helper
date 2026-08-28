@@ -647,7 +647,7 @@ namespace GHelper.USB
             if (color is { Length: > 0 })
             {
                 PeripheralsProvider.StreamMouseColor(color.Length > 3 ? color[3] : color[0]);
-                PeripheralsProvider.StreamKeyboardColor(color.Length > 3 ? color[3] : color[0]);
+                PeripheralsProvider.StreamKeyboardColors(color);
             }
 
             if (!backlight) return;
@@ -838,6 +838,7 @@ namespace GHelper.USB
 
         public static void ApplyAura()
         {
+            PeripheralsProvider.InvalidateKeyboardFrames();
             Mode = (AuraMode)AppConfig.Get("aura_mode");
             Speed = (AuraSpeed)AppConfig.Get("aura_speed");
             SetColor(AppConfig.Get("aura_color"));
